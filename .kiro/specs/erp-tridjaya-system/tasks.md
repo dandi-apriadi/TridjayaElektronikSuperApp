@@ -48,6 +48,14 @@ This implementation plan follows a **Mobile-First Development** approach where t
     - Implement logout (clear token from storage)
     - Implement token expiry detection and redirect to login
     - _Requirements: 1.10_
+  
+  - [ ] 2.4 Implement password reset UI ("Lupa Password" flow)
+    - Add "Lupa Password" link on login screen
+    - Create OTP request screen (input username/phone, submit to POST /api/auth/password-reset/request)
+    - Create OTP verification screen (6-digit input, 15-minute countdown timer)
+    - Create new password input screen with confirmation field
+    - Handle error states: invalid OTP, expired OTP, rate limit exceeded
+    - _Requirements: 26.1, 26.4, 26.5, 26.7_
 
 - [ ] 3. Checkpoint - Login & Setup complete
   - Login screen renders correctly
@@ -180,6 +188,11 @@ This implementation plan follows a **Mobile-First Development** approach where t
     - Define DummyFollowUpList for today
     - Define DummySalesTarget with daily/weekly/monthly achievement data
     - Define DummyCampaignList
+  
+  - [ ] 7.4 Create stock availability widget for Sales (read-only)
+    - Display product availability status (Tersedia / Habis) per category (Aki, TV, HP) for the Sales employee's branch
+    - Use dummy data; no stock quantity shown — only availability indicator
+    - _Requirements: 5.9_
 
 ---
 
@@ -338,11 +351,13 @@ This implementation plan follows a **Mobile-First Development** approach where t
 
 - [ ] 20. Implement database schema and migrations
   - [ ] 20.1 Create core entity tables (User, Branch, Audit_Log)
-    - Write SQL migrations for User table with role enum and branch_id
+    - Write SQL migrations for User table with role enum, branch_id, whatsapp_number, is_active, and deleted_at fields
     - Write SQL migrations for Branch table with geofence coordinates
     - Write SQL migrations for Audit_Log table with immutability constraints
+    - Create dedicated PostgreSQL role `audit_writer` with INSERT-only privilege on audit_logs table; revoke UPDATE and DELETE from application user
+    - Add PostgreSQL trigger on audit_logs to reject any UPDATE or DELETE at DB level
     - Add indexes on foreign keys and frequently queried fields
-    - _Requirements: 1.4, 1.5, 18.2, 18.6, 23.4_
+    - _Requirements: 1.4, 1.5, 18.2, 18.3, 18.6, 23.4_
   
   - [ ] 20.2 Create inventory management tables
     - Write SQL migrations for Inventory_Item table with category enum
@@ -358,10 +373,10 @@ This implementation plan follows a **Mobile-First Development** approach where t
     - _Requirements: 10.1, 10.5, 11.1, 12.1_
   
   - [ ] 20.4 Create CRM and messaging tables
-    - Write SQL migrations for Prospect table with unique phone constraint
-    - Write SQL migrations for WhatsApp_Campaign table with statistics fields
+    - Write SQL migrations for Prospect table with unique phone constraint and branch_id field
+    - Write SQL migrations for WhatsApp_Campaign table with statistics fields and branch_id field
     - Write SQL migrations for WhatsApp_Message table with retry tracking
-    - Write SQL migrations for Chat_Message table with encryption support
+    - Write SQL migrations for Chat_Message table with encryption support (content stored as encrypted bytes)
     - _Requirements: 13.1, 13.2, 13.9, 14.1, 21.1_
 
 - [ ] 21. Checkpoint - Database schema validation
@@ -378,9 +393,9 @@ This implementation plan follows a **Mobile-First Development** approach where t
     - Implement bcrypt password hashing with 12 rounds minimum
     - Create user registration endpoint
     - Create POST /api/auth/login endpoint (used by Flutter since Phase A)
-    - Implement JWT token generation with user role and branch_id in claims
+    - Implement JWT token generation with user role, branch_id, and jti (UUID) in claims
     - Set JWT expiration to 24 hours
-    - _Requirements: 1.1, 22.1, 22.2_
+    - _Requirements: 1.1, 1.11, 22.1, 22.2_
   
   - [ ] 22.2 Implement JWT validation middleware
     - Create Axum middleware to extract and validate JWT from Authorization header
@@ -395,10 +410,18 @@ This implementation plan follows a **Mobile-First Development** approach where t
     - _Requirements: 1.4–1.9, 18.9_
   
   - [ ] 22.4 Implement refresh token and rate limiting
-    - Refresh token storage in Redis
+    - Refresh token storage in Redis with 7-day TTL keyed by user_id
+    - On logout: delete refresh token from Redis immediately
+    - On password change or user deactivation: delete all refresh tokens for that user from Redis
     - Login rate limiting (5 attempts per 15 minutes per IP)
     - Input sanitization middleware
-    - _Requirements: 1.10, 22.5, 22.6_
+    - _Requirements: 1.10, 1.12, 1.13, 22.5, 22.6_
+  
+  - [ ] 22.5 Implement password reset via WhatsApp OTP
+    - Create POST /api/auth/password-reset/request endpoint: validate user exists, generate 6-digit OTP, store in Redis with 15-minute TTL and 3-attempt counter per hour, send OTP via WhatsApp_Gateway
+    - Create POST /api/auth/password-reset/verify endpoint: validate OTP, check expiry and attempt count, update password hash with bcrypt, invalidate all refresh tokens for user, create Audit_Log entry
+    - Implement OTP attempt counter in Redis to block after 3 failed attempts per hour
+    - _Requirements: 26.1, 26.2, 26.3, 26.4, 26.5, 26.6_
 
 ---
 
@@ -461,11 +484,12 @@ This implementation plan follows a **Mobile-First Development** approach where t
 ### Phase 15: Sales Backend APIs
 
 - [ ] 30. Implement CRM backend service
-  - Implement Prospect CRUD endpoints
+  - Implement Prospect CRUD endpoints with branch_id filter enforced for non-Owner roles
   - Implement conversion funnel calculation
-  - Implement WhatsApp campaign management
+  - Implement WhatsApp campaign management with branch isolation: validate all recipient prospects belong to creator's branch before campaign creation
   - Create Sales dashboard metrics endpoints
-  - _Requirements: 5.1–5.8, 13.1–13.9, 14.1–14.9_
+  - Create GET /api/inventory/availability endpoint (returns only Tersedia/Habis per category for Sales role, filtered by branch)
+  - _Requirements: 5.1–5.9, 13.1–13.9, 14.1–14.12_
 
 - [ ] 31. Connect Flutter Sales screens to real API
   - Replace dummy providers with API calls
@@ -494,23 +518,30 @@ This implementation plan follows a **Mobile-First Development** approach where t
 
 - [ ] 34. Implement attendance backend service
   - Implement POST /api/attendance/check-in with GPS geofence validation
+  - Accept and log mock_location_detected flag from mobile app; reject check-in if mock location is detected
   - Implement POST /api/attendance/check-out with working hours calculation
-  - Implement duplicate attendance detection
+  - Implement duplicate attendance detection (applies to all roles including Driver)
+  - Implement offline sync conflict resolution: reject offline attendance if server record already exists for same user+date (server-wins)
   - Store selfie photos in Object Storage
-  - Write property tests: geofence validation, duplicate detection, hours calculation
-  - _Requirements: 10.1–10.10_
+  - Write property tests: geofence validation, duplicate detection, hours calculation, offline conflict resolution, mock location rejection
+  - _Requirements: 10.1–10.13_
 
 - [ ] 35. Implement work report backend service
   - Implement POST /api/work-reports endpoint
   - Implement approval/rejection endpoints (Kepala Cabang)
+  - Implement escalation background job: check every hour for work reports pending > 48 hours; notify Owner and grant Owner temporary approval access
+  - Implement PUT /api/work-reports/:id/approve endpoint accessible by both Kepala_Cabang and Owner (Owner only when escalated)
   - Send notifications on submission and review
-  - _Requirements: 9.1–9.8_
+  - _Requirements: 9.1–9.9_
 
 - [ ] 36. Implement task management backend service
   - Implement POST /api/tasks endpoint with WhatsApp notification
+  - Enforce branch isolation: validate assignee belongs to same branch as creator; allow cross-branch only if creator role is Owner
   - Implement task status update endpoint
-  - Write property test for task assignment
-  - _Requirements: 11.1–11.7_
+  - Implement delivery edit/cancel endpoints with status-based guard (only allow edit/cancel when status = Pending)
+  - Enforce Driver cannot cancel delivery; Driver can only set status to InProgress, Completed, or Failed (notes required for Failed)
+  - Write property tests: task assignment branch enforcement, delivery status transition enforcement
+  - _Requirements: 11.1–11.12, 12.11–12.13_
 
 - [ ] 37. Connect Flutter HRIS screens to real API
   - Replace dummy attendance, work report, task providers with API calls
@@ -523,9 +554,11 @@ This implementation plan follows a **Mobile-First Development** approach where t
 
 - [ ] 38. Implement WhatsApp integration (N8N / WA Business API)
   - Set up N8N workflow for WhatsApp message dispatch
+  - Implement HMAC-SHA256 webhook authentication: WhatsApp_Gateway signs all webhook payloads with shared secret; N8N validates signature on every incoming webhook before processing
+  - Store webhook shared secret in secret manager; implement rotation mechanism (minimum every 90 days)
   - Implement retry mechanism for failed messages
   - Implement campaign blast scheduler
-  - _Requirements: 14.1–14.9, 16.1–16.9_
+  - _Requirements: 14.1–14.9, 16.1–16.9, 27.1–27.5_
 
 - [ ] 39. Implement social media monitoring (optional)
   - Set up monitoring for brand mentions (Tokopedia, Shopee, Instagram, Google)
@@ -576,7 +609,14 @@ This implementation plan follows a **Mobile-First Development** approach where t
   - Task assignment (Property 15)
   - Login rate limiting (Property 32)
   - SQL injection prevention (Property 33)
-  - _Requirements: 22.1–22.6_
+  - Refresh token revocation on logout and password change (Property 36)
+  - Prospect branch isolation: Sales cannot access prospects from other branches (Property 37)
+  - Campaign branch isolation: campaign rejected if any recipient is from different branch (Property 38)
+  - Task assignment branch enforcement: Kepala Cabang cannot assign cross-branch, Owner can (Property 39)
+  - Delivery status transition enforcement: cannot edit/cancel InProgress or Completed delivery; Driver cannot cancel (Property 40)
+  - Offline attendance conflict resolution: server-wins, reject offline record if server record exists (Property 41)
+  - N8N webhook HMAC validation: invalid or missing signature returns 401 (Property 42)
+  - _Requirements: 22.1–22.12, 26.1–26.6, 27.1–27.5_
 
 - [ ] 45. Implement audit logging
   - Log all data mutations with user_id, action, old/new values, timestamp

@@ -1,0 +1,138 @@
+# ============================================
+# TE SuperApp - Root .gitignore
+# Flutter Mobile + Rust Backend
+# ============================================
+
+# ============================================
+# Environment & Secrets
+# ============================================
+.env
+.env.local
+.env.*.local
+!.env.example
+*.pem
+*.key
+*.cert
+secrets/
+
+# ============================================
+# IDE & Editor
+# ============================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# ============================================
+# OS Generated
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================
+# Flutter/Dart (Mobile)
+# ============================================
+mobile/.dart_tool/
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+mobile/.pub-cache/
+mobile/.pub/
+mobile/coverage/
+mobile/lib/generated_plugin_registrant.dart
+
+# Android
+mobile/android/.gradle/
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/android/key.properties
+mobile/android/local.properties
+mobile/android/app/*.keystore
+mobile/android/app/key.jks
+mobile/android/captures/
+
+# iOS
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework/
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/ServiceDefinitions.json
+mobile/ios/Runner/GeneratedPluginRegistrant.*
+mobile/ios/Flutter/App.framework/
+mobile/ios/Flutter/engine/
+mobile/ios/build/
+
+# Web
+mobile/web/.dart_tool/
+mobile/web/build/
+
+# ============================================
+# Rust (Backend)
+# ============================================
+backend/target/
+backend/Cargo.lock
+backend/**/*.rs.bk
+backend/*.pdb
+backend/te_superapp.db
+backend/*.db
+backend/*.db-journal
+backend/*.db-shm
+backend/*.db-wal
+
+# ============================================
+# Logs & Databases
+# ============================================
+*.log
+*.logs
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+logs/
+log/
+
+# ============================================
+# Build & Dependencies
+# ============================================
+node_modules/
+dist/
+build/
+*.lock
+
+# ============================================
+# Testing
+# ============================================
+*.test.dart
+*.mocks.dart
+test/coverage/
+.nyc_output/
+
+# ============================================
+# Documentation Generated
+# ============================================
+docs/_build/
+site/
+
+# ============================================
+# Temporary Files
+# ============================================
+tmp/
+temp/
+*.tmp
+*.temp
+*.cache
+cache/

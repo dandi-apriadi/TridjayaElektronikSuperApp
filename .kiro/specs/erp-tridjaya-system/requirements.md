@@ -54,6 +54,9 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 8. WHEN a Sales accesses the system, THE RBAC_Module SHALL grant access to prospect management and sales reporting features
 9. WHEN a Driver accesses the system, THE RBAC_Module SHALL grant access to delivery schedule and route features only
 10. WHEN a JWT token expires, THE Auth_Service SHALL require re-authentication
+11. THE Auth_Service SHALL include a unique token identifier (jti claim) in every JWT token to support individual token revocation
+12. WHEN a user logs out, THE Auth_Service SHALL immediately invalidate the refresh token by removing it from Redis, making further token refresh impossible
+13. WHEN a user's password is changed or an admin deactivates a user account, THE Auth_Service SHALL invalidate all existing refresh tokens for that user in Redis
 
 ### Requirement 2: Dashboard Owner
 
@@ -117,6 +120,7 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 6. THE Mobile_App SHALL provide quick access to add new prospect form
 7. THE Mobile_App SHALL display recent WhatsApp campaign results
 8. THE Mobile_App SHALL display conversion rate statistics
+9. THE Mobile_App SHALL display read-only stock availability status (tersedia/tidak tersedia) for products in the Sales employee's branch, to support prospect negotiations
 
 ### Requirement 6: Dashboard Driver
 
@@ -141,7 +145,7 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 
 1. WHEN an authorized user adds stock, THE Operational_Service SHALL record the stock addition with timestamp and user information
 2. WHEN an authorized user removes stock, THE Operational_Service SHALL record the stock removal with reason and user information
-3. WHEN stock level falls below the defined threshold, THE Operational_Service SHALL generate a Stock_Alert
+3. WHEN stock level falls below the defined threshold, THE Operational_Service SHALL generate a Stock_Alert and notify both Admin and Kepala_Cabang with role-specific action instructions: Admin SHALL receive instruction to input new stock, Kepala_Cabang SHALL receive instruction to escalate to supplier
 4. THE Operational_Service SHALL calculate real-time stock levels across all branches
 5. WHEN a stock transaction is recorded, THE Operational_Service SHALL create an Audit_Log entry
 6. THE Mobile_App SHALL support barcode scanning for quick stock entry
@@ -178,6 +182,7 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 6. THE Mobile_App SHALL allow Kepala_Cabang to approve or reject work reports with comments
 7. THE HRIS_Service SHALL store work report attachments in Object_Storage
 8. THE Mobile_App SHALL display work report submission history for each employee
+9. WHEN a work report remains pending approval for more than 48 hours without review, THE HRIS_Service SHALL notify the Owner and allow the Owner to approve or reject the work report directly as an escalation fallback
 
 ### Requirement 10: Absensi Karyawan
 
@@ -195,6 +200,9 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 8. WHEN an employee is late, THE HRIS_Service SHALL mark the attendance as late and calculate delay duration
 9. THE Mobile_App SHALL allow offline attendance recording with sync when connection is restored
 10. WHEN a Kepala_Cabang views attendance, THE Mobile_App SHALL display attendance status for all branch employees
+11. THE Mobile_App SHALL detect if mock location / developer mode GPS spoofing is active on the device and SHALL reject attendance check-in if spoofing is detected, sending a flag to the backend for security logging
+12. THE HRIS_Service SHALL apply the requirement for attendance (check-in, check-out, late detection) to all employee roles including Driver
+13. WHEN syncing an offline attendance record and an attendance record for the same user and same date already exists on the server, THE HRIS_Service SHALL reject the offline record with a server-wins conflict resolution policy and notify the user
 
 ### Requirement 11: Manajemen Tugas (Task Management)
 
@@ -211,6 +219,9 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 7. THE Mobile_App SHALL allow attaching photos or documents as task completion proof
 8. THE Mobile_App SHALL display task completion statistics for each employee
 9. WHEN a Kepala_Cabang views task list, THE Mobile_App SHALL display all tasks for their branch with status filters
+10. THE HRIS_Service SHALL enforce that a Kepala_Cabang can only assign tasks to employees within their own branch
+11. WHEN an Owner creates a task, THE HRIS_Service SHALL allow assigning the task to any employee across all branches
+12. THE HRIS_Service SHALL reject a task assignment if the assignee does not belong to the same branch as the task creator, unless the creator is an Owner
 
 ### Requirement 12: Jadwal Pengiriman
 
@@ -228,6 +239,9 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 8. WHEN a delivery is delayed or failed, THE Mobile_App SHALL allow the Driver to add notes and reschedule
 9. THE Mobile_App SHALL track delivery completion time and calculate delivery performance metrics
 10. WHEN a Kepala_Cabang views delivery reports, THE Mobile_App SHALL display delivery statistics and performance for their branch
+11. WHEN a delivery has status Pending, THE Operational_Service SHALL allow Kepala_Cabang to edit or cancel the delivery schedule
+12. WHEN a delivery has status InProgress or Completed, THE Operational_Service SHALL reject any edit or cancellation attempts and return an appropriate error
+13. A Driver SHALL NOT be able to cancel a delivery; the Driver may only update delivery status to InProgress, Completed, or Failed and SHALL be required to add notes when marking a delivery as Failed
 
 ### Requirement 13: CRM - Manajemen Prospek
 
@@ -262,6 +276,8 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 8. THE CRM_Service SHALL record campaign results including delivery rate, read rate, and response rate
 9. THE Mobile_App SHALL allow scheduling campaigns for future execution
 10. THE CRM_Service SHALL prevent sending duplicate messages to the same prospect within 24 hours
+11. THE CRM_Service SHALL enforce branch isolation: a Sales or Kepala_Cabang can only select prospects from their own branch as campaign recipients
+12. THE CRM_Service SHALL reject campaign creation if any selected recipient prospect belongs to a different branch than the campaign creator
 
 ### Requirement 15: WhatsApp AI Chatbot
 
@@ -311,8 +327,9 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 6. THE Mobile_App SHALL display reach and impressions for recent posts
 7. THE Mobile_App SHALL display ad campaign performance metrics (spend, reach, conversions)
 8. THE Social_Service SHALL refresh social media data every 6 hours
-9. THE Mobile_App SHALL allow comparing performance across different branches
+9. THE Mobile_App SHALL allow comparing performance across different branches (Owner only)
 10. THE Mobile_App SHALL display top-performing posts for each platform
+11. WHEN a Kepala_Cabang accesses social media dashboard, THE Social_Service SHALL restrict data to social media accounts belonging to their assigned branch only, with no access to other branches' metrics
 
 ### Requirement 18: Audit Log dan Transparansi
 
@@ -376,11 +393,12 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 3. THE Mobile_App SHALL support group chats for branch teams
 4. THE Mobile_App SHALL allow Kepala_Cabang to broadcast announcements to all branch employees
 5. THE Mobile_App SHALL support sending text, photos, and documents in chats
-6. THE HRIS_Service SHALL store chat messages in Database with encryption
+6. THE HRIS_Service SHALL store chat messages in Database encrypted with AES-256-GCM per-conversation key; encryption keys SHALL be stored in a dedicated secret manager separate from the application database
 7. THE Mobile_App SHALL display unread message count on the chat icon
 8. THE Mobile_App SHALL send push notifications for new messages when app is in background
 9. THE Mobile_App SHALL allow searching chat history by keyword
 10. THE HRIS_Service SHALL retain chat messages for 90 days for compliance
+11. WHEN an Owner sends a broadcast message, THE HRIS_Service SHALL deliver the announcement to all Kepala_Cabang across all branches, or optionally to all employees across all branches (company-wide announcement)
 
 ### Requirement 22: Data Security dan Enkripsi
 
@@ -395,9 +413,11 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 5. THE Backend_Service SHALL implement rate limiting to prevent brute force attacks (maximum 5 failed login attempts per 15 minutes)
 6. THE Backend_Service SHALL sanitize all user inputs to prevent SQL injection attacks
 7. THE Backend_Service SHALL implement CORS policy to restrict API access to authorized domains
-8. THE Object_Storage SHALL use signed URLs with expiration for accessing sensitive files
+8. THE Object_Storage SHALL use signed URLs with expiration for accessing sensitive files; maximum TTL SHALL be 15 minutes for direct file viewing and 1 hour for report downloads
 9. THE Backend_Service SHALL log all security events (failed logins, permission denials, suspicious activities)
 10. THE System SHALL comply with data protection regulations for customer data handling
+11. THE Backend_Service SHALL implement specific rate limiting for high-cost endpoints: file/photo uploads maximum 10 requests per minute per user, PDF report exports maximum 5 requests per minute per user, and attendance check-in maximum 2 times per day per user
+12. THE Backend_Service SHALL include an X-Request-ID header in all API responses for end-to-end request tracing and debugging
 
 ### Requirement 23: Performance dan Scalability
 
@@ -423,9 +443,9 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 #### Acceptance Criteria
 
 1. THE Backend_Service SHALL calculate performance metrics for Sales employees based on prospects converted, revenue generated, and conversion rate
-2. THE Backend_Service SHALL calculate performance metrics for non-Sales employees (Admin, Driver) based on task completion rate, attendance punctuality, and work report quality
+2. THE Backend_Service SHALL calculate performance metrics for non-Sales employees based on role: Admin and Kepala_Cabang are evaluated by task completion rate, attendance punctuality, and work report quality; Driver is evaluated by delivery completion rate, attendance punctuality, and on-time delivery rate
 3. THE Backend_Service SHALL generate rankings for Sales employees across all branches
-4. THE Backend_Service SHALL generate rankings for non-Sales employees across all branches
+4. THE Backend_Service SHALL generate rankings for non-Sales employees within their respective role group only (Admin ranked against Admin, Driver ranked against Driver); rank_overall SHALL represent ranking within the same role group, not across all roles
 5. THE Mobile_App SHALL display top 10 Sales performers with their metrics (prospects converted, revenue, conversion rate)
 6. THE Mobile_App SHALL display bottom 5 Sales performers with their metrics
 7. THE Mobile_App SHALL display top 10 non-Sales performers with their metrics (task completion rate, attendance rate, punctuality score)
@@ -454,3 +474,29 @@ Sistem ERP Tridjaya adalah platform manajemen terpadu untuk perusahaan retail mu
 8. THE deployment SHALL include monitoring and logging using Prometheus and Grafana
 9. THE deployment SHALL implement zero-downtime deployment using rolling updates
 10. THE deployment SHALL include disaster recovery plan with backup restoration procedures
+
+### Requirement 26: Password Reset
+
+**User Story:** As an employee, I want to securely reset my password if I forget it, so that I can regain access to the system without compromising security.
+
+#### Acceptance Criteria
+
+1. WHEN a user requests a password reset, THE Auth_Service SHALL send a one-time password (OTP) to the user's registered WhatsApp number
+2. THE Auth_Service SHALL generate a cryptographically random 6-digit OTP with a 15-minute expiration time, stored in Redis
+3. WHEN a user submits a valid OTP and a new password, THE Auth_Service SHALL update the password hash and immediately invalidate all existing refresh tokens for that user
+4. THE Auth_Service SHALL reject OTP submissions after the 15-minute expiration and require a new reset request
+5. THE Auth_Service SHALL limit password reset requests to maximum 3 attempts per user per hour to prevent OTP enumeration attacks
+6. WHEN a password reset is completed, THE Auth_Service SHALL create an Audit_Log entry recording the password change event with user ID and timestamp
+7. THE Mobile_App SHALL provide a "Lupa Password" link on the login screen that initiates the OTP-based reset flow
+
+### Requirement 27: N8N Webhook Security
+
+**User Story:** As a system administrator, I want all N8N webhook endpoints to be authenticated, so that only legitimate WhatsApp Gateway messages can trigger automation workflows.
+
+#### Acceptance Criteria
+
+1. THE WhatsApp_Gateway SHALL include an HMAC-SHA256 signature in every webhook request sent to the N8N_Service, computed using a shared secret key
+2. THE N8N_Service SHALL validate the HMAC-SHA256 signature on every incoming webhook request before processing
+3. WHEN the HMAC-SHA256 signature is missing or invalid, THE N8N_Service SHALL reject the request with HTTP 401 and log the unauthorized attempt
+4. THE shared secret key used for HMAC signing SHALL be stored in a secret manager and rotated at minimum every 90 days
+5. THE Backend_Service SHALL log all rejected N8N webhook requests as security events in the Audit_Log

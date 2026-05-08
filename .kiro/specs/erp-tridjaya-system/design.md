@@ -111,8 +111,11 @@ graph TB
 - password_hash: String (bcrypt, 12 rounds)
 - role: Enum (Owner, Kepala_Cabang, Admin, Sales, Driver)
 - branch_id: UUID (nullable for Owner)
+- whatsapp_number: String (for OTP-based password reset)
+- is_active: Boolean (default true; set false to deactivate user and revoke all tokens)
 - created_at: Timestamp
 - updated_at: Timestamp
+- deleted_at: Timestamp (nullable, soft delete — preserves audit trail)
 
 **Branch:**
 - id: UUID
@@ -202,6 +205,7 @@ graph TB
 **Prospect:**
 - id: UUID
 - sales_id: UUID
+- branch_id: UUID (enforces branch-level isolation; Sales can only access prospects within their branch)
 - name: String
 - phone: String (unique)
 - email: String (nullable)
@@ -212,10 +216,12 @@ graph TB
 - follow_up_date: Timestamp (nullable)
 - created_at: Timestamp
 - updated_at: Timestamp
+- deleted_at: Timestamp (nullable, soft delete)
 
 **WhatsApp_Campaign:**
 - id: UUID
 - creator_id: UUID
+- branch_id: UUID (enforces branch isolation; campaign recipients must belong to same branch)
 - name: String
 - message_template: Text
 - recipient_count: Integer
@@ -298,29 +304,50 @@ graph TB
 
 1. **Authentication:**
    - JWT tokens with 24-hour expiration
-   - Refresh token mechanism for seamless re-authentication
+   - JWT claims MUST include `jti` (JWT ID) — unique UUID per token — to support individual token revocation
+   - Refresh token mechanism for seamless re-authentication; refresh tokens stored in Redis with 7-day TTL
+   - Refresh tokens MUST be invalidated (deleted from Redis) on: logout, password change, account deactivation
    - Secure password hashing with bcrypt (12 rounds minimum)
+   - OTP-based password reset via WhatsApp: 6-digit random OTP, 15-minute TTL in Redis, max 3 attempts/hour/user
 
 2. **Authorization:**
    - Role-Based Access Control (RBAC) enforced at API level
-   - Branch-level data isolation for non-Owner roles
+   - Branch-level data isolation for non-Owner roles — enforced at both API middleware AND data model level (branch_id on Prospect, WhatsApp_Campaign)
    - Middleware validation on every protected endpoint
+   - Prospect and campaign endpoints MUST filter by branch_id matching the authenticated user's branch_id for non-Owner roles
 
 3. **Data Protection:**
    - Encryption at rest for sensitive fields (phone, address, financial data)
    - TLS/HTTPS for all API communications
-   - Signed URLs with expiration for file access
+   - Signed URLs with expiration for file access: max 15 minutes for direct viewing, max 1 hour for report downloads
+   - Chat message `content` field encrypted with AES-256-GCM; per-conversation encryption keys stored in secret manager (not in application DB)
    - Input sanitization to prevent SQL injection and XSS
+   - Soft delete (`deleted_at`) on User and Prospect tables to preserve audit trail integrity
 
 4. **Rate Limiting:**
    - Login attempts: 5 per 15 minutes per IP
    - API requests: 100 per minute per user
    - WhatsApp messages: 20 per minute per campaign
+   - File/photo uploads: 10 per minute per user
+   - PDF report exports: 5 per minute per user
+   - Attendance check-in: 2 per day per user (enforced at business logic level)
+   - Password reset OTP requests: 3 per hour per user
 
 5. **Audit Trail:**
    - Immutable audit logs for all critical operations
    - 2-year retention policy
    - Separate storage from operational data
+   - **DB-level immutability enforcement:** The `audit_logs` table MUST be owned by a dedicated PostgreSQL role (`audit_writer`) that has INSERT privilege only. The application database user SHALL NOT have UPDATE or DELETE privileges on `audit_logs`. A PostgreSQL trigger SHALL be added to reject any UPDATE or DELETE attempt at the database level.
+
+6. **Webhook Security:**
+   - All N8N webhook endpoints MUST validate HMAC-SHA256 signature on incoming requests
+   - Signature computed by WhatsApp_Gateway using a shared secret stored in secret manager
+   - Requests with missing or invalid signatures are rejected with HTTP 401 and logged as security events
+   - Shared secret rotated at minimum every 90 days
+
+7. **Request Tracing:**
+   - All API responses MUST include `X-Request-ID` header for end-to-end tracing
+   - Request ID propagated across all internal service calls for debugging and audit correlation
 
 ### Performance Optimization
 
@@ -355,6 +382,7 @@ graph TB
 **Sync Strategy:**
 - Automatic sync when connection restored
 - Conflict resolution: server wins for most cases, user prompt for critical data
+- **Attendance conflict resolution: strict server-wins policy** — if an attendance record already exists on server for the same user and date, the offline record is rejected and the user is notified; no user prompt for attendance conflicts
 - Incremental sync based on last sync timestamp
 - Background sync service
 
@@ -375,12 +403,14 @@ graph TB
 - Automated report generation
 - Scheduled notification triggers
 - Webhook processing for WhatsApp
+- All incoming webhooks MUST be authenticated via HMAC-SHA256 signature validation before processing
 
 **WhatsApp Gateway:**
 - Self-hosted WhatsApp Business API
 - Message queue in Redis
 - Rate limiting and retry logic
 - Delivery status tracking
+- Attaches HMAC-SHA256 signature header to all webhook calls sent to N8N_Service
 
 **Social Media Integration:**
 - OAuth2 authentication for Meta and TikTok APIs
@@ -601,3 +631,45 @@ graph TB
 *For any* employee and time period, the calculated performance metrics (conversion rate, task completion rate, attendance rate) SHALL equal the correct ratio of successful outcomes to total attempts.
 
 **Validates: Requirements 24.1, 24.2**
+
+### Property 36: Refresh Token Revocation on Logout and Password Change
+
+*For any* user who has logged out or changed their password, any subsequent attempt to use a refresh token issued before that event SHALL be rejected by the Auth_Service.
+
+**Validates: Requirements 1.12, 1.13, 26.3**
+
+### Property 37: Prospect Branch Isolation
+
+*For any* Sales user, all prospect list and prospect detail API responses SHALL contain only prospects where prospect.branch_id equals the authenticated user's branch_id.
+
+**Validates: Requirements 13.1, 1.6**
+
+### Property 38: Campaign Branch Isolation
+
+*For any* campaign creation request, if any recipient prospect's branch_id does not match the creator's branch_id, the system SHALL reject the campaign creation with an appropriate error.
+
+**Validates: Requirements 14.11, 14.12**
+
+### Property 39: Task Assignment Branch Enforcement
+
+*For any* task creation by a Kepala_Cabang, if the assignee's branch_id does not match the creator's branch_id, the system SHALL reject the task assignment. For an Owner creator, any branch_id combination SHALL be accepted.
+
+**Validates: Requirements 11.10, 11.11, 11.12**
+
+### Property 40: Delivery Status Transition Enforcement
+
+*For any* delivery with status InProgress or Completed, any edit or cancel request SHALL be rejected. A Driver SHALL only be able to set status to InProgress, Completed, or Failed, and a notes field SHALL be required when status is set to Failed.
+
+**Validates: Requirements 12.11, 12.12, 12.13**
+
+### Property 41: Offline Attendance Conflict Resolution
+
+*For any* offline attendance sync request where an attendance record already exists on the server for the same user_id and date, the server SHALL reject the offline record and return a conflict error without modifying the existing server record.
+
+**Validates: Requirements 10.13, 19.9**
+
+### Property 42: N8N Webhook HMAC Validation
+
+*For any* webhook request received by the N8N_Service, if the HMAC-SHA256 signature header is absent or does not match the expected signature computed from the request body and shared secret, the request SHALL be rejected with HTTP 401.
+
+**Validates: Requirements 27.1, 27.2, 27.3**
