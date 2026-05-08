@@ -322,6 +322,243 @@ This implementation plan follows a **Mobile-First Development** approach where t
 
 ---
 
+### Phase 8.6: 👑 Super Admin System (NEW)
+> Kontrol penuh sistem untuk Super Administrator
+
+- [ ] 18.1 Super Admin Role & Models
+  - [x] 18.1.1 Add SuperAdmin to UserRole enum
+  - [x] 18.1.2 Create Super Admin models (SystemConfig, UserManagement, AuditLog)
+  - [x] 18.1.3 Create RoleDefinition and Permission models
+  - [x] 18.1.4 Create SecurityAlert and FeatureFlag models
+  - [x] 18.1.5 Create dummy data for all Super Admin features
+  - _Requirements: NEW - Super Admin Control
+
+- [ ] 18.2 Super Admin Dashboard UI
+  - [x] 18.2.1 Create SuperAdminDashboardScreen with 6 tabs
+    - Overview: System stats, role distribution, recent activity
+    - Users: Full user management (CRUD, suspend, impersonate)
+    - Branches: Branch management and monitoring
+    - Security: Security alerts and monitoring
+    - Audit Logs: Complete system audit trail
+    - System: Feature flags, configuration, backups
+  - [x] 18.2.2 Implement user management actions
+    - Add/edit/delete users
+    - Suspend/activate users
+    - Reset passwords
+    - Impersonate users
+    - View user details and history
+  - [x] 18.2.3 Implement security monitoring
+    - Critical alerts display
+    - Alert severity levels (Critical, High, Medium, Low)
+    - Alert resolution workflow
+  - [x] 18.2.4 Implement audit logging UI
+    - All system actions logged
+    - Filter by action type, user, date
+    - Export audit logs
+  - _Requirements: NEW - Super Admin Dashboard
+
+- [ ] 18.3 Super Admin Navigation & Routes
+  - [x] 18.3.1 Add SuperAdmin to UserRoleExtension with permissions
+    - canAccessAllBranches: true
+    - canManageAllUsers: true
+    - canEditAnyData: true
+    - isSuperAdmin: true
+  - [x] 18.3.2 Add Super Admin routes to app_router
+    - /superadmin (Dashboard)
+    - /superadmin/users/create
+    - /superadmin/users/:id/edit
+    - /superadmin/settings
+    - /superadmin/security/:id
+  - [x] 18.3.3 Add Super Admin bottom navigation
+    - Dashboard, Pengguna, Monitoring, Profil
+  - _Requirements: NEW - Super Admin Navigation
+
+---
+
+### Phase 8.5: 📋 Job Desk System (NEW)
+> Sistem job desk fleksibel per role dengan proof foto
+
+- [ ] 17.1 Implement Job Desk UI - Owner/Superadmin Management
+  - [ ] 17.1.1 Create Job Desk template management screen
+    - List all templates per role (Support Online, Sales, Driver, etc)
+    - Search and filter templates
+    - Activate/deactivate templates
+    - _Requirements: NEW - Job Desk Management
+  
+  - [ ] 17.1.2 Create Job Desk template form screen
+    - Template name and role selection
+    - Dynamic task list editor (add/edit/delete/reorder)
+    - Task configuration: name, description, type (counter/checkbox)
+    - Proof requirements: photo/document/none
+    - Target value and unit (e.g., 200 orang, 5 kontak)
+    - Mandatory/optional toggle
+    - Preview template before save
+    - _Requirements: NEW - Template Builder
+  
+  - [ ] 17.1.3 Create Job Desk assignment screen
+    - Select employees by role/branch (multi-select)
+    - Assign template to selected employees
+    - Set validity period (start-end date)
+    - Bulk assignment capabilities
+    - Assignment history view
+    - _Requirements: NEW - Assignment Management
+  
+  - [ ] 17.1.4 Create Job Desk monitoring dashboard
+    - Overview: completion rate per role/branch
+    - Employee progress list with status
+    - Filter by date range, role, branch
+    - Drill-down to individual employee detail
+    - Export/report capabilities (placeholder)
+    - _Requirements: NEW - Monitoring & Analytics
+
+- [x] 17.1.5 Create Job Desk Activity Report Screen (NEW)
+  - **Role-based access control:**
+    - Owner: Lihat semua cabang (system-wide view)
+    - Kepala Cabang: Hanya cabang sendiri (branch-restricted)
+    - PIC: Lihat semua untuk penilaian & verifikasi
+  - **3 Tab Interface:**
+    - Overview: Summary cards, role breakdown, alerts/notifications
+    - Karyawan: List karyawan dengan filter (branch, role, status)
+    - Cabang: Summary per cabang (Owner/SuperAdmin only)
+  - **Features:**
+    - Search karyawan by name/role/branch
+    - Filter by status: notStarted, pending, inProgress, pendingVerification, verified
+    - Employee cards dengan progress bar dan score badge
+    - Branch health indicators (excellent/good/average/poor)
+    - Alerts: no activity, low completion, pending verification, excellent performance
+    - Export to PDF/Excel (placeholder)
+    - Detail modal untuk lihat submission history
+  - **Data Models:** EmployeeJobDeskActivity, BranchJobDeskSummary, DailyJobDeskReport
+  - **Dummy Data:** 4 cabang, 10+ karyawan, mixed activity statuses
+  - _Requirements: NEW - Activity Reporting & Analytics_
+
+- [ ] 17.2 Implement Job Desk UI - Employee Daily Input
+  - [ ] 17.2.1 Create My Job Desk dashboard screen
+    - Today's task list with progress ring
+    - Task status: pending/completed/verified
+    - Counter tasks with +/- buttons
+    - Checkbox tasks for simple completion
+    - Photo proof requirement indicator
+    - Daily completion summary
+    - Streak/achievement display (gamification placeholder)
+    - _Requirements: NEW - Employee Dashboard
+  
+  - [ ] 17.2.2 Create Job Desk submission screen
+    - Task-by-task input form
+    - Camera integration for photo proof
+    - Gallery picker for multiple photos
+    - Notes/comment input per task
+    - Real-time validation (e.g., min 200 broadcast)
+    - Submit confirmation with summary
+    - Offline mode support (save draft)
+    - _Requirements: NEW - Task Submission
+  
+  - [ ] 17.2.3 Create Job Desk history screen
+    - Calendar view of past submissions
+    - Daily detail view with all tasks
+    - Filter by status: all/completed/pending
+    - View submitted photos
+    - Edit history (if allowed by admin)
+    - _Requirements: NEW - History Tracking
+  
+  - [ ] 17.2.4 Create Photo proof viewer/camera screen
+    - Camera with guidelines overlay
+    - Photo preview and retake option
+    - Multiple photo capture (3-5 photos)
+    - Timestamp and GPS tag display (if enabled)
+    - Gallery integration for existing photos
+    - _Requirements: NEW - Proof Capture
+
+- [ ] 17.3 Implement Job Desk UI - PIC/Owner Verification & Scoring
+  - [ ] 17.3.1 Create PIC Dashboard Screen
+    - Overview: All employees job desk submissions for selected date
+    - Auto-priority algorithm: Who to check first (completion %, overdue, etc)
+    - Filter by branch, role, completion status, verification status
+    - Quick stats: Pending verification, Completed, Need attention
+    - _Requirements: NEW - PIC Dashboard
+  
+  - [ ] 17.3.2 Create Photo Review Screen
+    - One-by-one photo review interface
+    - Zoom, pan, and annotate photos
+    - Score input (1-100) per task submission
+    - Comment/note per photo
+    - Navigation: Previous/Next photo
+    - Mark as verified or flag for revision
+    - _Requirements: NEW - Photo Review
+  
+  - [ ] 17.3.3 Create Verification Detail Screen
+    - Employee profile header with completion summary
+    - All tasks with submitted proofs in list
+    - Individual task score input
+    - Auto-calculate total score based on weights
+    - Override individual scores
+    - Final approval with signature/comment
+    - _Requirements: NEW - Verification Detail
+  
+  - [ ] 17.3.4 Create Daily Scoring Recap Screen
+    - Auto-generated at 09:00 WITA cutoff
+    - All employees scores for previous day
+    - Export/download report (CSV/PDF placeholder)
+    - Edit scores (PIC can modify after cutoff)
+    - Lock indicator for closed submissions
+    - _Requirements: NEW - Daily Recap
+
+- [ ] 17.4 Job Desk Time-Based Rules (Cutoff System)
+  - [ ] 17.4.1 Cutoff Time Configuration
+    - Default cutoff: 09:00 WITA
+    - Configurable per branch (optional)
+    - Countdown timer for employees (show time remaining)
+    - _Requirements: NEW - Cutoff Settings
+  
+  - [ ] 17.4.2 Submission Lock Mechanism
+    - Auto-lock submissions at cutoff time
+    - Previous day submissions locked for employees
+    - Current day opens after 09:00 WITA
+    - Visual indicators: Locked/Unlocked status
+    - _Requirements: NEW - Time Locking
+  
+  - [ ] 17.4.3 PIC Edit Permissions
+    - PIC can edit scores anytime after cutoff
+    - Edit history tracking (who, when, what changed)
+    - Reason for edit field (required)
+    - Notification to employee if score changed
+    - _Requirements: NEW - Edit Tracking
+
+- [ ] 17.4 Pre-defined Templates (Seed Data - UI Only)
+  - [ ] 17.4.1 Support Online template
+    - Tasks: Update data pelamar, Broadcast 200 orang, 5 prospek/hari,
+      Sosmed management, Kenalan 5 orang, Tambah kontak 5,
+      IDG LKH harian, Share ke 100 grup, SS WA ke Ko Iwan,
+      WA Bomber 3x, TikTok upload & live, Ucapan ulang tahun
+    - Proof requirements: Photo for broadcast, SS for WA
+    - _Requirements: NEW - Support Online Role
+  
+  - [ ] 17.4.2 Sales template
+    - Tasks: Follow-up prospek, Kunjungan customer, Input data,
+      Update pipeline, Laporan harian
+    - Proof requirements: Photo for kunjungan
+    - _Requirements: NEW - Sales Role
+  
+  - [ ] 17.4.3 Driver template
+    - Tasks: Check kendaraan (pagi/sore), Deliver orders,
+      Update status, Laporan pengiriman
+    - Proof requirements: Photo for check kendaraan
+    - _Requirements: NEW - Driver Role
+  
+  - [ ] 17.4.4 Admin template
+    - Tasks: Stok check, Input transaksi, Rekonsiliasi,
+      Laporan harian admin
+    - Proof requirements: Photo for stok
+    - _Requirements: NEW - Admin Role
+
+- [ ] 17.5 Job Desk Navigation Integration
+  - Add "Job Desk" menu item to bottom nav for all roles
+  - Role-specific icons and labels
+  - Badge for pending tasks
+  - _Requirements: 1.4, 1.5
+
+---
+
 ### Phase 9: ✅ User Approval Checkpoint
 
 - [ ] 18. **APPROVAL GATE — Present Flutter UI for User Review**

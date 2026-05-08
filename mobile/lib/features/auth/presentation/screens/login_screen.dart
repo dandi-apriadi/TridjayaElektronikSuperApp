@@ -124,13 +124,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Container(
-                              width: 56, height: 56,
+                              width: 80, height: 80,
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(20),
                                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8))],
                               ),
-                              child: const Icon(Icons.bolt_rounded, color: AppColors.primary, size: 32),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(18),
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.bolt_rounded, color: AppColors.primary, size: 40),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 20),
                             Text('Selamat Datang\nKembali 👋',

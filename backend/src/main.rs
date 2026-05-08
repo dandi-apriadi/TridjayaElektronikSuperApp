@@ -62,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/auth/password-reset/verify", post(handlers::auth::password_reset_verify))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .with_state(state.clone());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], state.config.port));
     info!("Server listening on http://{}", addr);

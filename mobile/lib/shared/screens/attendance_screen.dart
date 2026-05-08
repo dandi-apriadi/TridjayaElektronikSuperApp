@@ -204,11 +204,11 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
         children: [
           const Icon(Icons.location_on_rounded, color: AppColors.success, size: 22),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Dalam Area Kantor', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.success)),
+                const Text('Dalam Area Kantor', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.success)),
                 Text('Cabang Pusat — 45m dari titik absensi', style: AppTextStyles.caption),
               ],
             ),
@@ -260,11 +260,11 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.border),
               ),
-              child: const Column(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.camera_alt_outlined, size: 48, color: AppColors.textHint),
-                  SizedBox(height: 8),
+                  const Icon(Icons.camera_alt_outlined, size: 48, color: AppColors.textHint),
+                  const SizedBox(height: 8),
                   Text('Kamera Preview', style: AppTextStyles.caption),
                   Text('(Simulasi)', style: AppTextStyles.caption),
                 ],

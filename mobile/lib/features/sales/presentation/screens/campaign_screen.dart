@@ -289,9 +289,9 @@ class _CampaignScreenState extends State<CampaignScreen> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.info.withOpacity(0.25)),
               ),
-              child: const Row(children: [
-                Icon(Icons.info_outline, color: AppColors.info, size: 16),
-                SizedBox(width: 8),
+              child: Row(children: [
+                const Icon(Icons.info_outline, color: AppColors.info, size: 16),
+                const SizedBox(width: 8),
                 Expanded(child: Text('Hanya prospek dari cabang Anda yang dapat dipilih sebagai penerima.', style: AppTextStyles.caption)),
               ]),
             ),

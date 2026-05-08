@@ -1,9 +1,12 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:json_annotation/json_annotation.dart';
 
 part 'user_model.freezed.dart';
 part 'user_model.g.dart';
 
 enum UserRole {
+  @JsonValue('SuperAdmin')
+  superAdmin,
   @JsonValue('Owner')
   owner,
   @JsonValue('Kepala_Cabang')
@@ -19,6 +22,8 @@ enum UserRole {
 extension UserRoleExtension on UserRole {
   String get displayName {
     switch (this) {
+      case UserRole.superAdmin:
+        return 'Super Admin';
       case UserRole.owner:
         return 'Owner';
       case UserRole.kepalaCabang:
@@ -32,8 +37,11 @@ extension UserRoleExtension on UserRole {
     }
   }
 
-  bool get canAccessAllBranches => this == UserRole.owner;
+  bool get canAccessAllBranches => this == UserRole.superAdmin || this == UserRole.owner;
   bool get isFieldWorker => this == UserRole.driver || this == UserRole.sales;
+  bool get isSuperAdmin => this == UserRole.superAdmin;
+  bool get canManageAllUsers => this == UserRole.superAdmin;
+  bool get canEditAnyData => this == UserRole.superAdmin;
 }
 
 @freezed

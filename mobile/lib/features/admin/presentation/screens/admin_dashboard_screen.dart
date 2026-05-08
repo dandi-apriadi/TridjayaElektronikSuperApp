@@ -117,7 +117,7 @@ class AdminDashboardScreen extends ConsumerWidget {
             _stockCol(Icons.smartphone_outlined, 'HP', inv.hpStock, AppColors.success),
           ]),
         ),
-        if (inv.lowStockCount > 0) ..[
+        if (inv.lowStockCount > 0) ...[
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () => context.go('/admin/inventory'),

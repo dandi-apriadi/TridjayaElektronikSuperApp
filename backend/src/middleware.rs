@@ -5,10 +5,7 @@ use axum::{
     response::Response,
     RequestPartsExt,
 };
-use axum_extra::{
-    headers::{authorization::Bearer, Authorization},
-    TypedHeader,
-};
+// axum_extra imports removed — headers are read manually from request
 use sqlx::{Pool, Sqlite};
 
 use crate::{

@@ -18,37 +18,45 @@ List<_NavItem> _navItemsFor(UserRole role, String baseRoute) {
     case UserRole.owner:
       return [
         _NavItem('Beranda', Icons.home_outlined, Icons.home_rounded, '/owner'),
-        _NavItem('Performa', Icons.leaderboard_outlined, Icons.leaderboard_rounded, '/owner/performance'),
-        _NavItem('Laporan', Icons.bar_chart_outlined, Icons.bar_chart_rounded, '/owner/reports'),
+        _NavItem('Job Desk', Icons.assignment_outlined, Icons.assignment_rounded, '/jobdesk/templates'),
+        _NavItem('Laporan', Icons.analytics_outlined, Icons.analytics_rounded, '/jobdesk/report?role=owner'),
         _NavItem('Profil', Icons.person_outline_rounded, Icons.person_rounded, '/owner/profile'),
       ];
     case UserRole.kepalaCabang:
       return [
         _NavItem('Beranda', Icons.home_outlined, Icons.home_rounded, '/kepala-cabang'),
-        _NavItem('Tugas', Icons.task_outlined, Icons.task_rounded, '/kepala-cabang/tasks'),
-        _NavItem('Laporan', Icons.description_outlined, Icons.description_rounded, '/kepala-cabang/reports'),
+        _NavItem('Laporan', Icons.analytics_outlined, Icons.analytics_rounded, '/jobdesk/report?role=kepalaCabang&branch=branch_001'),
+        _NavItem('Verifikasi', Icons.fact_check_outlined, Icons.fact_check_rounded, '/jobdesk/pic'),
         _NavItem('Profil', Icons.person_outline_rounded, Icons.person_rounded, '/kepala-cabang/profile'),
       ];
     case UserRole.admin:
       return [
         _NavItem('Beranda', Icons.home_outlined, Icons.home_rounded, '/admin'),
         _NavItem('Inventori', Icons.inventory_2_outlined, Icons.inventory_2_rounded, '/admin/inventory'),
-        _NavItem('Tugas', Icons.task_outlined, Icons.task_rounded, '/admin/tasks'),
+        _NavItem('Job Desk', Icons.assignment_outlined, Icons.assignment_rounded, '/jobdesk'),
         _NavItem('Profil', Icons.person_outline_rounded, Icons.person_rounded, '/admin/profile'),
       ];
     case UserRole.sales:
       return [
         _NavItem('Beranda', Icons.home_outlined, Icons.home_rounded, '/sales'),
         _NavItem('Prospek', Icons.people_outline_rounded, Icons.people_rounded, '/sales/prospects'),
-        _NavItem('Kampanye', Icons.campaign_outlined, Icons.campaign_rounded, '/sales/campaigns'),
+        _NavItem('Job Desk', Icons.assignment_outlined, Icons.assignment_rounded, '/jobdesk'),
         _NavItem('Profil', Icons.person_outline_rounded, Icons.person_rounded, '/sales/profile'),
       ];
     case UserRole.driver:
       return [
         _NavItem('Beranda', Icons.home_outlined, Icons.home_rounded, '/driver'),
         _NavItem('Pengiriman', Icons.local_shipping_outlined, Icons.local_shipping_rounded, '/driver/deliveries'),
-        _NavItem('Absensi', Icons.fingerprint_rounded, Icons.fingerprint_rounded, '/driver/attendance'),
+        _NavItem('Job Desk', Icons.assignment_outlined, Icons.assignment_rounded, '/jobdesk'),
         _NavItem('Profil', Icons.person_outline_rounded, Icons.person_rounded, '/driver/profile'),
+      ];
+    
+    case UserRole.superAdmin:
+      return [
+        _NavItem('Dashboard', Icons.dashboard_outlined, Icons.dashboard_rounded, '/superadmin'),
+        _NavItem('Pengguna', Icons.people_outline, Icons.people, '/superadmin/users'),
+        _NavItem('Monitoring', Icons.analytics_outlined, Icons.analytics_rounded, '/superadmin/monitoring'),
+        _NavItem('Profil', Icons.person_outline_rounded, Icons.person_rounded, '/superadmin/profile'),
       ];
   }
 }
@@ -71,6 +79,7 @@ int _currentNavIndex(List<_NavItem> navItems, String currentRoute) {
 
 Color _roleColor(UserRole role) {
   switch (role) {
+    case UserRole.superAdmin: return const Color(0xFF1A1A2E); // Dark admin color
     case UserRole.owner: return AppColors.ownerColor;
     case UserRole.kepalaCabang: return AppColors.kepalaCabangColor;
     case UserRole.admin: return AppColors.adminColor;
@@ -91,7 +100,8 @@ class AppScaffold extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider);
+    final authState = ref.watch(authNotifierProvider);
+    final user = authState.valueOrNull;
     if (user == null) return child;
 
     final role = user.role;

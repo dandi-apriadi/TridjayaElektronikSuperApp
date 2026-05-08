@@ -150,7 +150,7 @@ class _PerformanceScreenState extends State<PerformanceScreen>
         ],
         const SectionHeader(title: 'Ranking Teratas'),
         const SizedBox(height: 8),
-        ...employees.take(employees.length > 5 ? 5 : employees.length).asMap().entries.map((entry) {
+        ...employees.take(5).toList().asMap().entries.map((entry) {
           final index = entry.key;
           final emp = entry.value;
           return _buildRankCard(emp, index + 1);

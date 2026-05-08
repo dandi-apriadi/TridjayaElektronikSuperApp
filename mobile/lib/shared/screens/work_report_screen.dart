@@ -349,9 +349,9 @@ class _WorkReportScreenState extends ConsumerState<WorkReportScreen>
               child: Container(
                 height: 60, width: double.infinity,
                 decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-                child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.attach_file_rounded, color: AppColors.textHint),
-                  SizedBox(width: 8),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.attach_file_rounded, color: AppColors.textHint),
+                  const SizedBox(width: 8),
                   Text('Lampirkan Foto/Dokumen', style: AppTextStyles.caption),
                 ]),
               ),

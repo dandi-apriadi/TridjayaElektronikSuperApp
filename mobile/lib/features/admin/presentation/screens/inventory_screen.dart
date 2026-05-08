@@ -385,9 +385,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
             child: Container(
               height: 50, width: double.infinity,
               decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
-              child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.camera_alt_outlined, color: AppColors.textHint, size: 18),
-                SizedBox(width: 8),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.camera_alt_outlined, color: AppColors.textHint, size: 18),
+                const SizedBox(width: 8),
                 Text('Foto Bukti (Opsional)', style: AppTextStyles.caption),
               ]),
             ),
@@ -413,9 +413,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildEmpty() {
-    return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(Icons.inventory_2_outlined, size: 56, color: AppColors.textHint),
-      SizedBox(height: 12),
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      const Icon(Icons.inventory_2_outlined, size: 56, color: AppColors.textHint),
+      const SizedBox(height: 12),
       Text('Tidak ada item ditemukan', style: AppTextStyles.body),
     ]));
   }

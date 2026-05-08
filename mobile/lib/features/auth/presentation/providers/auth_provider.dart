@@ -2,7 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/models/user_model.dart';
 import '../../data/auth_repository.dart';
 
-final currentUserProvider = StateProvider<UserModel?>((ref) => null);
+final currentUserProvider = StateProvider<UserModel?>((ref) {
+  final authState = ref.watch(authNotifierProvider);
+  return authState.valueOrNull;
+});
 
 class AuthNotifier extends AsyncNotifier<UserModel?> {
   @override

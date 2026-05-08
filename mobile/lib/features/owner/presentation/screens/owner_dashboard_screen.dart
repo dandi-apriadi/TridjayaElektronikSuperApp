@@ -117,15 +117,32 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Row(children: [
+                        // Logo Tridjaya Elektronik
                         Container(
                           width: 42, height: 42,
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                          child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)],
+                          ),
+                          child: Center(
+                            child: Text('TE',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.ownerColor,
+                              ),
+                            ),
+                          ),
                         ),
                         const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-                          onPressed: () {},
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('📬 Tidak ada notifikasi baru')),
+                            );
+                          },
                         ),
                       ]),
                       const SizedBox(height: 8),
@@ -185,7 +202,16 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 16),
-      SectionHeader(title: 'Hari Ini', actionLabel: 'Laporan', onAction: () {}),
+      SectionHeader(
+        title: 'Hari Ini',
+        actionLabel: 'Detail Cabang',
+        onAction: () {
+          final selectedBranchId = _selectedBranchIndex == 0
+              ? DummyDataProvider.branches.first.id
+              : DummyDataProvider.branches[_selectedBranchIndex - 1].id;
+          context.push('/owner/branches/$selectedBranchId');
+        },
+      ),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(child: GradientStatCard(
@@ -210,7 +236,15 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
           title: 'Stok Rendah', value: '$lowStock item',
           subtitle: 'Perlu restock',
           icon: Icons.warning_amber_outlined, color: AppColors.error,
-          onTap: () {},
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ $lowStock item stok rendah - Segera lakukan restock!'),
+                duration: const Duration(seconds: 2),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          },
         )),
       ]),
     ]);
@@ -218,7 +252,18 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
 
   Widget _buildAttendanceCard() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionHeader(title: 'Kehadiran Hari Ini', actionLabel: 'Detail', onAction: () {}),
+      SectionHeader(
+        title: 'Kehadiran Hari Ini',
+        actionLabel: 'Detail',
+        onAction: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('📋 Detail Kehadiran: Hadir 24, Terlambat 3, Absen 1, Izin 0'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+      ),
       const SizedBox(height: 12),
       DonutChartCard(
         title: 'Status Kehadiran Semua Cabang',
@@ -236,7 +281,18 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
 
   Widget _buildRevenueChart() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionHeader(title: 'Pendapatan 7 Hari Terakhir', actionLabel: 'Laporan', onAction: () {}),
+      SectionHeader(
+        title: 'Pendapatan 7 Hari Terakhir',
+        actionLabel: 'Laporan',
+        onAction: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('📈 Laporan Penjualan 7 Hari: Total 131 unit, Rp 2.342.500.000'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+      ),
       const SizedBox(height: 12),
       LineChartCard(
         title: 'Tren Penjualan',
@@ -260,7 +316,26 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
       ('HP Xiaomi Note 13', 'Cabang Timur', 2),
     ];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionHeader(title: 'Alert Stok Rendah', actionLabel: 'Semua', onAction: () {}),
+      SectionHeader(
+        title: 'Alert Stok Rendah',
+        actionLabel: 'Semua',
+        onAction: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('⚠️ Semua Alert Stok Rendah: ${alerts.length} item memerlukan perhatian'),
+              duration: const Duration(seconds: 2),
+              action: SnackBarAction(
+                label: 'Lihat',
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('📦 Menampilkan semua item stok rendah...')),
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      ),
       const SizedBox(height: 12),
       Container(
         decoration: BoxDecoration(
@@ -304,7 +379,21 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
       ..sort((a, b) => b.score.compareTo(a.score));
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionHeader(title: 'Top Performer', actionLabel: 'Semua', onAction: () => context.go('/owner/performance')),
+      SectionHeader(
+        title: 'Top Performer',
+        actionLabel: 'Semua',
+        onAction: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('👥 Membuka detail semua Top Performer...'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+          Future.delayed(const Duration(milliseconds: 500), () {
+            context.go('/owner/performance');
+          });
+        },
+      ),
       const SizedBox(height: 12),
       Container(
         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm),

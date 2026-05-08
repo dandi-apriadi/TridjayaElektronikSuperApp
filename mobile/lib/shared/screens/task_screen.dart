@@ -280,9 +280,9 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.border, style: BorderStyle.solid),
                 ),
-                child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.add_photo_alternate_outlined, color: AppColors.textHint, size: 28),
-                  SizedBox(height: 6),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.add_photo_alternate_outlined, color: AppColors.textHint, size: 28),
+                  const SizedBox(height: 6),
                   Text('Lampirkan Foto Bukti', style: AppTextStyles.caption),
                 ]),
               ),
