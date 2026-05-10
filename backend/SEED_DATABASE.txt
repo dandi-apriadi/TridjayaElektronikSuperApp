@@ -1,0 +1,87 @@
+-- ============================================================
+-- 🔐 SEED DATABASE - Login credentials for all roles
+-- Run this SQL to populate database with test users
+-- Password for all users: password123
+-- ============================================================
+
+-- Password hash for "password123" using bcrypt
+-- Hash: $2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e
+
+-- ============================================================
+-- 1. BRANCHES (Cabang)
+-- ============================================================
+
+INSERT OR IGNORE INTO branches (id, name, address, phone, created_at)
+VALUES 
+    ('branch-001', 'Cabang Bandung', 'Jl. Sudirman No. 123, Bandung', '022-1234567', datetime('now')),
+    ('branch-002', 'Cabang Jakarta', 'Jl. Thamrin No. 45, Jakarta', '021-7654321', datetime('now')),
+    ('branch-003', 'Cabang Surabaya', 'Jl. Pemuda No. 78, Surabaya', '031-9876543', datetime('now'));
+
+-- ============================================================
+-- 2. USERS (All Roles)
+-- ============================================================
+
+-- 1. OWNER (Pak Iwan) - Can access all branches
+INSERT OR IGNORE INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
+VALUES ('user-001', 'owner', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Owner', NULL, 1, datetime('now'), datetime('now'));
+
+-- 2. KEPALA CABANG (Budi Wijaya) - Cabang Bandung
+INSERT OR IGNORE INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
+VALUES ('user-002', 'kepalacabang', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Kepala_Cabang', 'branch-001', 1, datetime('now'), datetime('now'));
+
+-- 3. ADMIN (Dedi Kurniawan) - Cabang Bandung
+INSERT OR IGNORE INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
+VALUES ('user-003', 'admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Admin', 'branch-001', 1, datetime('now'), datetime('now'));
+
+-- 4. SALES (Ahmad Santoso) - Cabang Bandung
+INSERT OR IGNORE INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
+VALUES ('user-004', 'sales', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Sales', 'branch-001', 1, datetime('now'), datetime('now'));
+
+-- 5. DRIVER (Citra Dewi) - Cabang Bandung
+INSERT OR IGNORE INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
+VALUES ('user-005', 'driver', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Driver', 'branch-001', 1, datetime('now'), datetime('now'));
+
+-- 6. SUPER ADMIN (System Administrator)
+INSERT OR IGNORE INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
+VALUES ('user-006', 'superadmin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'SuperAdmin', NULL, 1, datetime('now'), datetime('now'));
+
+-- ============================================================
+-- 3. ADDITIONAL SAMPLE USERS (Optional)
+-- ============================================================
+
+-- Additional Sales (Cabang Jakarta)
+INSERT OR IGNORE INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
+VALUES ('user-007', 'sales_jkt', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Sales', 'branch-002', 1, datetime('now'), datetime('now'));
+
+-- Additional Driver (Cabang Surabaya)
+INSERT OR IGNORE INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
+VALUES ('user-008', 'driver_sby', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Driver', 'branch-003', 1, datetime('now'), datetime('now'));
+
+-- ============================================================
+-- 4. INSTRUCTIONS
+-- ============================================================
+
+-- To run this SQL file:
+-- 1. Using SQLite CLI:
+--    sqlite3 te_superapp.db < SEED_DATABASE.txt
+--
+-- 2. Or copy-paste the INSERT statements into your database client
+--
+-- 3. Or run the seed_data.rs Rust file to seed automatically
+
+-- ============================================================
+-- 🔐 TEST CREDENTIALS SUMMARY
+-- ============================================================
+--
+-- | Role           | Username        | Password     | Branch        |
+-- |----------------|-----------------|--------------|---------------|
+-- | Owner          | owner           | password123  | All Branches  |
+-- | Kepala Cabang  | kepalacabang    | password123  | Cabang Bandung|
+-- | Admin          | admin           | password123  | Cabang Bandung|
+-- | Sales          | sales           | password123  | Cabang Bandung|
+-- | Driver         | driver          | password123  | Cabang Bandung|
+-- | Super Admin    | superadmin      | password123  | All Branches  |
+
+-- ============================================================
+-- ⚠️ NOTE: Change password in production!
+-- ============================================================

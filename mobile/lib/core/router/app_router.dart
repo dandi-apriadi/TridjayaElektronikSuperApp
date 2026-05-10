@@ -4,33 +4,56 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/user_model.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../../features/auth/presentation/screens/otp_verification_screen.dart';
 import '../../features/auth/presentation/screens/password_reset_screen.dart';
 import '../../features/owner/presentation/screens/owner_dashboard_screen.dart';
 import '../../features/owner/presentation/screens/performance_screen.dart';
 import '../../features/owner/presentation/screens/branch_detail_screen.dart';
 import '../../features/owner/presentation/screens/owner_ai_chat_screen.dart';
+import '../../features/owner/presentation/screens/performance_ranking_screen.dart';
 import '../../features/kepala_cabang/presentation/screens/kepala_cabang_dashboard_screen.dart';
 import '../../features/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/screens/inventory_screen.dart';
+import '../../features/admin/presentation/screens/stock_transaction_screen.dart';
+import '../../features/admin/presentation/screens/inventory_detail_screen.dart';
 import '../../features/sales/presentation/screens/sales_dashboard_screen.dart';
 import '../../features/sales/presentation/screens/prospect_screen.dart';
 import '../../features/sales/presentation/screens/campaign_screen.dart';
+import '../../features/crm/presentation/screens/prospect_list_screen.dart';
+import '../../features/crm/presentation/screens/prospect_form_screen.dart';
+import '../../features/sales/presentation/screens/campaign_list_screen.dart';
+import '../../features/sales/presentation/screens/campaign_form_screen.dart';
+import '../../features/kepala_cabang/presentation/screens/task_assignment_screen.dart';
+import '../../features/kepala_cabang/presentation/screens/task_list_screen.dart';
 import '../../features/driver/presentation/screens/driver_dashboard_screen.dart';
-import '../../shared/screens/attendance_screen.dart';
 import '../../shared/screens/task_screen.dart';
 import '../../shared/screens/work_report_screen.dart';
 import '../../shared/screens/profile_screen.dart';
 import '../../shared/screens/notification_screen.dart';
+import '../../features/attendance/presentation/screens/leave_request_screen.dart';
+import '../../features/shared/screens/payroll_screen.dart';
+import '../../features/shared/screens/settings_screen.dart';
+import '../../features/shared/screens/ai_chat_screen.dart';
+import '../../features/shared/screens/announcement_screen.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import '../../features/jobdesk/presentation/screens/my_jobdesk_screen.dart';
 import '../../features/jobdesk/presentation/screens/jobdesk_template_list_screen.dart';
 import '../../features/jobdesk/presentation/screens/jobdesk_template_edit_screen.dart';
+import '../../features/jobdesk/presentation/screens/jobdesk_submission_screen.dart';
 import '../../features/jobdesk/presentation/screens/jobdesk_monitoring_screen.dart';
 import '../../features/jobdesk/presentation/screens/pic_dashboard_screen.dart';
 import '../../features/jobdesk/presentation/screens/photo_review_screen.dart';
 import '../../features/jobdesk/presentation/screens/task_submission_screen.dart';
 import '../../features/jobdesk/presentation/screens/jobdesk_activity_report_screen.dart';
+import '../../features/jobdesk/presentation/screens/jobdesk_history_screen.dart';
+import '../../features/attendance/presentation/screens/attendance_screen.dart';
+import '../../features/schedule/presentation/screens/schedule_screen.dart';
+import '../../features/schedule/presentation/screens/schedule_management_screen.dart';
+import '../../features/crm/presentation/screens/prospect_list_screen.dart';
+import '../../features/crm/presentation/screens/prospect_form_screen.dart';
 import '../../features/superadmin/presentation/screens/superadmin_dashboard_screen.dart';
+import '../../features/superadmin/presentation/screens/user_management_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
@@ -90,12 +113,60 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const TaskScreen()),
       ),
       GoRoute(
+        path: '/kepala-cabang/tasks',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const TaskListScreen()),
+      ),
+      GoRoute(
+        path: '/kepala-cabang/tasks/assign',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const TaskAssignmentScreen()),
+      ),
+      GoRoute(
         path: '/kepala-cabang/reports',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const WorkReportScreen()),
       ),
       GoRoute(
+        path: '/kepala-cabang/jobdesk-history',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const JobDeskHistoryScreen()),
+      ),
+      GoRoute(
         path: '/kepala-cabang/profile',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const ProfileScreen()),
+      ),
+
+      // ── Shared Routes ─────────────────────────────────────
+      GoRoute(
+        path: '/attendance',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const AttendanceScreen()),
+      ),
+      GoRoute(
+        path: '/leave',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const LeaveRequestScreen()),
+      ),
+      GoRoute(
+        path: '/payroll',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const PayrollScreen()),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const SettingsScreen()),
+      ),
+      GoRoute(
+        path: '/ai-chat',
+        builder: (_, state) => const AiChatScreen(),
+      ),
+      GoRoute(
+        path: '/announcements',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const AnnouncementScreen()),
+      ),
+
+      // ── Schedule ───────────────────────────────────────────
+      GoRoute(
+        path: '/schedule',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const ScheduleScreen()),
+      ),
+      GoRoute(
+        path: '/schedule/manage',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const ScheduleManagementScreen()),
       ),
 
       // ── Admin ──────────────────────────────────────────────
@@ -106,6 +177,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/inventory',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const InventoryScreen()),
+      ),
+      GoRoute(
+        path: '/admin/inventory/:id',
+        builder: (_, state) => AppScaffold(
+          currentRoute: state.matchedLocation,
+          child: InventoryDetailScreen(itemId: state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/stock-in',
+        builder: (_, state) => AppScaffold(
+          currentRoute: state.matchedLocation,
+          child: const StockTransactionScreen(transactionType: TransactionType.in_),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/stock-out',
+        builder: (_, state) => AppScaffold(
+          currentRoute: state.matchedLocation,
+          child: const StockTransactionScreen(transactionType: TransactionType.out),
+        ),
       ),
       GoRoute(
         path: '/admin/tasks',
@@ -120,6 +212,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/sales',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const SalesDashboardScreen()),
+      ),
+      GoRoute(
+        path: '/sales/prospects',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const ProspectListScreen()),
+      ),
+      GoRoute(
+        path: '/sales/prospects/add',
+        builder: (_, state) => const ProspectFormScreen(),
+      ),
+      GoRoute(
+        path: '/sales/prospects/edit/:id',
+        builder: (_, state) => ProspectFormScreen(prospectId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: '/sales/campaigns',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const CampaignListScreen()),
+      ),
+      GoRoute(
+        path: '/sales/campaigns/add',
+        builder: (_, state) => const CampaignFormScreen(),
+      ),
+      GoRoute(
+        path: '/sales/campaigns/edit/:id',
+        builder: (_, state) => CampaignFormScreen(campaignId: state.pathParameters['id']),
       ),
       GoRoute(
         path: '/sales/prospects',
@@ -155,8 +271,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // ── Job Desk ──────────────────────────────────────────
       // Employee routes
       GoRoute(
-        path: '/jobdesk',
+        path: '/jobdesk/my',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const MyJobDeskScreen()),
+      ),
+      GoRoute(
+        path: '/jobdesk/submit/:taskId',
+        builder: (_, state) => JobDeskSubmissionScreen(taskId: state.pathParameters['taskId']!),
       ),
       GoRoute(
         path: '/jobdesk/history',
@@ -216,6 +336,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const SuperAdminDashboardScreen()),
       ),
       GoRoute(
+        path: '/superadmin/users',
+        builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const UserManagementScreen()),
+      ),
+      GoRoute(
         path: '/superadmin/users/create',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const SuperAdminDashboardScreen()), // TODO: Create user form
       ),
@@ -244,6 +368,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             userRole: role,
             branchId: branchId,
           );
+        },
+      ),
+
+      // ── Auth ───────────────────────────────────────────────
+      GoRoute(
+        path: '/login',
+        builder: (_, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/auth/forgot-password',
+        builder: (_, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/auth/verify-otp',
+        builder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return OtpVerificationScreen(username: extra?['username'] ?? '');
         },
       ),
 

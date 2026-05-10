@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.te_superapp"
-    // Using stable API 36 (Android 16 preview/latest)
+    // Using stable API 36
     compileSdk = 36
 
     compileOptions {

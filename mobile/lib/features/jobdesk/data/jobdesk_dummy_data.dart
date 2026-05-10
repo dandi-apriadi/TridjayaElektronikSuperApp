@@ -340,6 +340,65 @@ class JobDeskDummyData {
       );
     }).toList();
   }
+
+  /// ============================================================
+  /// 🕒 DUMMY SUBMISSIONS HISTORY
+  /// ============================================================
+
+  static List<JobDeskSubmission> getDummySubmissionsHistory() {
+    final now = DateTime.now();
+    final template = supportOnlineTemplate;
+
+    return [
+      JobDeskSubmission(
+        id: 'hist_001',
+        assignmentId: 'assign_001',
+        taskItemId: 'task_001',
+        submissionDate: now.subtract(const Duration(days: 1)),
+        submittedAt: now.subtract(const Duration(days: 1, hours: 2)),
+        status: JobDeskStatus.verified,
+        verifiedBy: 'Bp. Hendra',
+        verifiedAt: now.subtract(const Duration(days: 1, hours: 1)),
+        taskItem: template.tasks[0],
+      ),
+      JobDeskSubmission(
+        id: 'hist_002',
+        assignmentId: 'assign_001',
+        taskItemId: 'task_002',
+        submissionDate: now.subtract(const Duration(days: 1)),
+        submittedAt: now.subtract(const Duration(days: 1, hours: 1, minutes: 30)),
+        status: JobDeskStatus.verified,
+        verifiedBy: 'Bp. Hendra',
+        verifiedAt: now.subtract(const Duration(days: 1, minutes: 45)),
+        actualValue: 210,
+        proofPhotos: ['https://picsum.photos/400/600'],
+        taskItem: template.tasks[1],
+      ),
+      JobDeskSubmission(
+        id: 'hist_003',
+        assignmentId: 'assign_001',
+        taskItemId: 'task_006',
+        submissionDate: now.subtract(const Duration(days: 2)),
+        submittedAt: now.subtract(const Duration(days: 2, hours: 3)),
+        status: JobDeskStatus.rejected,
+        verifiedBy: 'Sistem',
+        verifiedAt: now.subtract(const Duration(days: 2, hours: 2)),
+        rejectionReason: 'Foto bukti tidak jelas, mohon foto ulang',
+        proofPhotos: ['https://picsum.photos/400/601'],
+        taskItem: template.tasks[5],
+      ),
+      JobDeskSubmission(
+        id: 'hist_004',
+        assignmentId: 'assign_001',
+        taskItemId: 'task_012',
+        submissionDate: now.subtract(const Duration(days: 2)),
+        submittedAt: now.subtract(const Duration(days: 2, hours: 1)),
+        status: JobDeskStatus.completed,
+        proofLink: 'https://tiktok.com/@user/video/789012',
+        taskItem: template.tasks[11],
+      ),
+    ];
+  }
   
   /// ============================================================
   /// 👤 DUMMY EMPLOYEE SUMMARIES (Untuk monitoring)

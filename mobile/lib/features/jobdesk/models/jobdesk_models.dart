@@ -207,7 +207,12 @@ class JobDeskSubmission {
   
   // UI helper - not from DB
   final JobDeskTaskItem? taskItem;
-  
+
+  // UI aliases for compatibility with different screens
+  String? get reviewerName => verifiedBy;
+  DateTime? get reviewedAt => verifiedAt;
+  String? get proofPhotoUrl => (proofPhotos != null && proofPhotos!.isNotEmpty) ? proofPhotos!.first : null;
+
   JobDeskSubmission({
     required this.id,
     required this.assignmentId,
