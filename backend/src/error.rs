@@ -11,11 +11,17 @@ pub enum AppError {
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
 
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+
     #[error("Authentication failed: {0}")]
     Auth(String),
 
     #[error("Unauthorized")]
     Unauthorized,
+
+    #[error("Forbidden")]
+    Forbidden,
 
     #[error("Bad request: {0}")]
     BadRequest(String),
@@ -23,8 +29,14 @@ pub enum AppError {
     #[error("Not found: {0}")]
     NotFound(String),
 
+    #[error("Not found")]
+    NotFoundSimple,
+
     #[error("Internal server error: {0}")]
     Internal(String),
+
+    #[error("Internal error: {0}")]
+    InternalError(String),
 
     #[error("JWT error: {0}")]
     Jwt(String),
@@ -38,13 +50,20 @@ impl IntoResponse for AppError {
         let (status, error_message) = match &self {
             AppError::Auth(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()),
+            AppError::Forbidden => (StatusCode::FORBIDDEN, "Forbidden".to_string()),
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
+            AppError::NotFoundSimple => (StatusCode::NOT_FOUND, "Not found".to_string()),
             AppError::Database(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Database error".to_string(),
             ),
+            AppError::DatabaseError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                msg.clone(),
+            ),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+            AppError::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
             AppError::Jwt(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             AppError::PasswordHash => (
                 StatusCode::INTERNAL_SERVER_ERROR,

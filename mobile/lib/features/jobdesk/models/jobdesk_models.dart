@@ -208,11 +208,6 @@ class JobDeskSubmission {
   // UI helper - not from DB
   final JobDeskTaskItem? taskItem;
 
-  // UI aliases for compatibility with different screens
-  String? get reviewerName => verifiedBy;
-  DateTime? get reviewedAt => verifiedAt;
-  String? get proofPhotoUrl => (proofPhotos != null && proofPhotos!.isNotEmpty) ? proofPhotos!.first : null;
-
   JobDeskSubmission({
     required this.id,
     required this.assignmentId,
@@ -235,6 +230,11 @@ class JobDeskSubmission {
   bool get isCompleted => status == JobDeskStatus.completed;
   bool get isVerified => status == JobDeskStatus.verified;
   bool get isRejected => status == JobDeskStatus.rejected;
+
+  // Compatibility getters for UI
+  DateTime? get reviewedAt => verifiedAt;
+  String? get reviewerName => verifiedBy;
+  String? get proofPhotoUrl => (proofPhotos != null && proofPhotos!.isNotEmpty) ? proofPhotos!.first : null;
 }
 
 /// ============================================================

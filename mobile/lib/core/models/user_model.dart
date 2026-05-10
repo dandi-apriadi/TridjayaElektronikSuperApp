@@ -48,9 +48,10 @@ extension UserRoleExtension on UserRole {
 class UserModel with _$UserModel {
   const factory UserModel({
     required String id,
-    required String email,
-    required String fullName,
+    required String username,
     required UserRole role,
+    String? email,
+    String? fullName,
     @JsonKey(name: 'branch_id') String? branchId,
     @JsonKey(name: 'branch_name') String? branchName,
     String? phone,

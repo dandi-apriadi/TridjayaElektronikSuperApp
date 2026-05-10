@@ -1,65 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/models/user_model.dart';
-import '../../features/auth/presentation/providers/auth_provider.dart';
-import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/auth/presentation/screens/forgot_password_screen.dart';
-import '../../features/auth/presentation/screens/otp_verification_screen.dart';
-import '../../features/auth/presentation/screens/password_reset_screen.dart';
-import '../../features/owner/presentation/screens/owner_dashboard_screen.dart';
-import '../../features/owner/presentation/screens/performance_screen.dart';
-import '../../features/owner/presentation/screens/branch_detail_screen.dart';
-import '../../features/owner/presentation/screens/owner_ai_chat_screen.dart';
-import '../../features/owner/presentation/screens/performance_ranking_screen.dart';
-import '../../features/kepala_cabang/presentation/screens/kepala_cabang_dashboard_screen.dart';
-import '../../features/admin/presentation/screens/admin_dashboard_screen.dart';
-import '../../features/admin/presentation/screens/inventory_screen.dart';
-import '../../features/admin/presentation/screens/stock_transaction_screen.dart';
-import '../../features/admin/presentation/screens/inventory_detail_screen.dart';
-import '../../features/sales/presentation/screens/sales_dashboard_screen.dart';
-import '../../features/sales/presentation/screens/prospect_screen.dart';
-import '../../features/sales/presentation/screens/campaign_screen.dart';
-import '../../features/crm/presentation/screens/prospect_list_screen.dart';
-import '../../features/crm/presentation/screens/prospect_form_screen.dart';
-import '../../features/sales/presentation/screens/campaign_list_screen.dart';
-import '../../features/sales/presentation/screens/campaign_form_screen.dart';
-import '../../features/kepala_cabang/presentation/screens/task_assignment_screen.dart';
-import '../../features/kepala_cabang/presentation/screens/task_list_screen.dart';
-import '../../features/driver/presentation/screens/driver_dashboard_screen.dart';
-import '../../shared/screens/task_screen.dart';
-import '../../shared/screens/work_report_screen.dart';
-import '../../features/attendance/presentation/screens/leave_request_screen.dart';
-import '../../shared/screens/notification_screen.dart';
-import '../../features/profile/presentation/screens/profile_screen.dart';
-import '../../features/notification/presentation/screens/notification_center_screen.dart';
-import '../../features/work/presentation/screens/work_report_list_screen.dart';
-import '../../features/work/presentation/screens/work_report_submission_screen.dart';
-import '../../features/work/presentation/screens/work_report_approval_screen.dart';
-import '../../shared/screens/leave_approval_screen.dart';
-import '../../features/shared/screens/payroll_screen.dart';
-import '../../features/shared/screens/settings_screen.dart';
-import '../../features/shared/screens/ai_chat_screen.dart';
-import '../../features/shared/screens/announcement_screen.dart';
-import '../../shared/widgets/app_scaffold.dart';
-import '../../features/jobdesk/presentation/screens/my_jobdesk_screen.dart';
-import '../../features/jobdesk/presentation/screens/jobdesk_template_list_screen.dart';
-import '../../features/jobdesk/presentation/screens/jobdesk_template_edit_screen.dart';
-import '../../features/jobdesk/presentation/screens/jobdesk_submission_screen.dart';
-import '../../features/jobdesk/presentation/screens/jobdesk_monitoring_screen.dart';
-import '../../features/jobdesk/presentation/screens/pic_dashboard_screen.dart';
-import '../../features/jobdesk/presentation/screens/pic_verification_dashboard_screen.dart';
-import '../../features/jobdesk/presentation/screens/photo_review_screen.dart';
-import '../../features/jobdesk/presentation/screens/task_submission_screen.dart';
-import '../../features/jobdesk/presentation/screens/jobdesk_activity_report_screen.dart';
-import '../../features/jobdesk/presentation/screens/jobdesk_history_screen.dart';
-import '../../features/attendance/presentation/screens/attendance_screen.dart';
-import '../../features/schedule/presentation/screens/schedule_screen.dart';
-import '../../features/schedule/presentation/screens/schedule_management_screen.dart';
-import '../../features/crm/presentation/screens/prospect_list_screen.dart';
-import '../../features/crm/presentation/screens/prospect_form_screen.dart';
-import '../../features/superadmin/presentation/screens/superadmin_dashboard_screen.dart';
-import '../../features/superadmin/presentation/screens/user_management_screen.dart';
+import 'package:te_superapp/core/models/user_model.dart';
+import 'package:te_superapp/features/auth/presentation/providers/auth_provider.dart';
+import 'package:te_superapp/features/auth/presentation/screens/login_screen.dart';
+import 'package:te_superapp/features/auth/presentation/screens/forgot_password_screen.dart';
+import 'package:te_superapp/features/auth/presentation/screens/otp_verification_screen.dart';
+import 'package:te_superapp/features/auth/presentation/screens/password_reset_screen.dart';
+import 'package:te_superapp/features/owner/presentation/screens/owner_dashboard_screen.dart';
+import 'package:te_superapp/features/owner/presentation/screens/performance_screen.dart';
+import 'package:te_superapp/features/owner/presentation/screens/branch_detail_screen.dart';
+import 'package:te_superapp/features/owner/presentation/screens/owner_ai_chat_screen.dart';
+import 'package:te_superapp/features/owner/presentation/screens/performance_ranking_screen.dart';
+import 'package:te_superapp/features/kepala_cabang/presentation/screens/kepala_cabang_dashboard_screen.dart';
+import 'package:te_superapp/features/admin/presentation/screens/admin_dashboard_screen.dart';
+import 'package:te_superapp/features/admin/presentation/screens/inventory_screen.dart';
+import 'package:te_superapp/features/admin/presentation/screens/stock_transaction_screen.dart';
+import 'package:te_superapp/features/admin/presentation/screens/inventory_detail_screen.dart';
+import 'package:te_superapp/features/sales/presentation/screens/sales_dashboard_screen.dart';
+import 'package:te_superapp/features/sales/presentation/screens/prospect_screen.dart';
+import 'package:te_superapp/features/sales/presentation/screens/campaign_screen.dart';
+import 'package:te_superapp/features/sales/presentation/screens/campaign_list_screen.dart';
+import 'package:te_superapp/features/sales/presentation/screens/campaign_form_screen.dart';
+import 'package:te_superapp/features/kepala_cabang/presentation/screens/task_assignment_screen.dart';
+import 'package:te_superapp/features/kepala_cabang/presentation/screens/task_list_screen.dart';
+import 'package:te_superapp/features/driver/presentation/screens/driver_dashboard_screen.dart';
+import 'package:te_superapp/features/attendance/presentation/screens/attendance_screen.dart';
+import 'package:te_superapp/shared/screens/task_screen.dart';
+import 'package:te_superapp/shared/screens/work_report_screen.dart';
+import 'package:te_superapp/shared/screens/profile_screen.dart';
+import 'package:te_superapp/shared/screens/notification_screen.dart';
+import 'package:te_superapp/features/attendance/presentation/screens/leave_request_screen.dart';
+import 'package:te_superapp/features/shared/screens/payroll_screen.dart';
+import 'package:te_superapp/features/shared/screens/settings_screen.dart';
+import 'package:te_superapp/features/shared/screens/ai_chat_screen.dart';
+import 'package:te_superapp/features/shared/screens/announcement_screen.dart';
+import 'package:te_superapp/shared/widgets/app_scaffold.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/my_jobdesk_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/jobdesk_template_list_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/jobdesk_template_edit_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/jobdesk_submission_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/jobdesk_monitoring_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/pic_dashboard_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/pic_verification_dashboard_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/photo_review_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/task_submission_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/jobdesk_activity_report_screen.dart';
+import 'package:te_superapp/features/jobdesk/presentation/screens/jobdesk_history_screen.dart';
+import 'package:te_superapp/features/schedule/presentation/screens/schedule_screen.dart';
+import 'package:te_superapp/features/schedule/presentation/screens/schedule_management_screen.dart';
+import 'package:te_superapp/features/crm/presentation/screens/prospect_list_screen.dart';
+import 'package:te_superapp/features/crm/presentation/screens/prospect_form_screen.dart';
+import 'package:te_superapp/features/superadmin/presentation/screens/superadmin_dashboard_screen.dart';
+import 'package:te_superapp/features/superadmin/presentation/screens/user_management_screen.dart';
+import 'package:te_superapp/features/notification/presentation/screens/notification_center_screen.dart';
+import 'package:te_superapp/features/work/presentation/screens/work_report_list_screen.dart';
+import 'package:te_superapp/features/work/presentation/screens/work_report_submission_screen.dart';
+import 'package:te_superapp/features/work/presentation/screens/work_report_approval_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
@@ -119,7 +116,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const TaskScreen()),
       ),
       GoRoute(
-        path: '/kepala-cabang/tasks',
+        path: '/kepala-cabang/tasks-list',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const TaskListScreen()),
       ),
       GoRoute(
@@ -244,11 +241,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => CampaignFormScreen(campaignId: state.pathParameters['id']),
       ),
       GoRoute(
-        path: '/sales/prospects',
+        path: '/sales/prospects-view',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const ProspectScreen()),
       ),
       GoRoute(
-        path: '/sales/campaigns',
+        path: '/sales/campaigns-view',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const CampaignScreen()),
       ),
       GoRoute(
@@ -333,7 +330,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       
       // Task Submission route (for employees to submit proof)
       GoRoute(
-        path: '/jobdesk/submit/:taskId',
+        path: '/jobdesk/submit-task/:taskId',
         builder: (_, state) => TaskSubmissionScreen(
           taskId: state.pathParameters['taskId']!,
           submissionId: state.uri.queryParameters['submission'],
@@ -383,10 +380,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // ── Auth ───────────────────────────────────────────────
       GoRoute(
-        path: '/login',
-        builder: (_, state) => const LoginScreen(),
-      ),
-      GoRoute(
         path: '/auth/forgot-password',
         builder: (_, state) => const ForgotPasswordScreen(),
       ),
@@ -403,11 +396,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         builder: (_, state) => const NotificationCenterScreen(),
       ),
-      GoRoute(
-        path: '/profile',
-        builder: (_, state) => const ProfileScreen(),
-      ),
-      
+
       // ── Work Reports (IDG) ──────────────────────────────────
       GoRoute(
         path: '/work-reports',

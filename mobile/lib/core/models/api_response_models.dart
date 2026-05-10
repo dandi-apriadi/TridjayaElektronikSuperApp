@@ -1,368 +1,682 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
-
-part 'api_response_models.freezed.dart';
-part 'api_response_models.g.dart';
+// ===========================================
+// API RESPONSE MODELS - WITHOUT FREEZED
+// Simple Dart classes with manual JSON serialization
+// ===========================================
 
 // ===========================================
 // BASE API RESPONSE
 // ===========================================
-@freezed
-class ApiResponse<T> with _$ApiResponse<T> {
-  const factory ApiResponse({
-    required bool success,
-    required String message,
-    T? data,
-    ApiError? error,
-  }) = _ApiResponse<T>;
+class ApiResponse<T> {
+  final bool success;
+  final String message;
+  final T? data;
+  final ApiError? error;
+
+  ApiResponse({
+    required this.success,
+    required this.message,
+    this.data,
+    this.error,
+  });
 
   factory ApiResponse.fromJson(
     Map<String, dynamic> json,
-    T Function(Object? json) fromJsonT,
-  ) =>
-      _$ApiResponseFromJson(json, fromJsonT);
+    T Function(Object?) fromJsonT,
+  ) {
+    return ApiResponse(
+      success: json['success'] as bool,
+      message: json['message'] as String,
+      data: json['data'] != null ? fromJsonT(json['data']) : null,
+      error: json['error'] != null
+          ? ApiError.fromJson(json['error'] as Map<String, dynamic>)
+          : null,
+    );
+  }
 }
 
-@freezed
-class ApiError with _$ApiError {
-  const factory ApiError({
-    required String code,
-    required String message,
-    Map<String, dynamic>? details,
-  }) = _ApiError;
+class ApiError {
+  final String code;
+  final String message;
+  final Map<String, dynamic>? details;
 
-  factory ApiError.fromJson(Map<String, dynamic> json) =>
-      _$ApiErrorFromJson(json);
+  ApiError({
+    required this.code,
+    required this.message,
+    this.details,
+  });
+
+  factory ApiError.fromJson(Map<String, dynamic> json) {
+    return ApiError(
+      code: json['code'] as String,
+      message: json['message'] as String,
+      details: json['details'] as Map<String, dynamic>?,
+    );
+  }
 }
 
 // ===========================================
 // AUTH RESPONSES
 // ===========================================
-@freezed
-class LoginResponse with _$LoginResponse {
-  const factory LoginResponse({
-    required String accessToken,
-    required String refreshToken,
-    required UserInfo user,
-  }) = _LoginResponse;
+class LoginResponse {
+  final String accessToken;
+  final String refreshToken;
+  final UserInfo user;
 
-  factory LoginResponse.fromJson(Map<String, dynamic> json) =>
-      _$LoginResponseFromJson(json);
+  LoginResponse({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.user,
+  });
+
+  factory LoginResponse.fromJson(Map<String, dynamic> json) {
+    return LoginResponse(
+      accessToken: json['access_token'] as String,
+      refreshToken: json['refresh_token'] as String,
+      user: UserInfo.fromJson(json['user'] as Map<String, dynamic>),
+    );
+  }
 }
 
-@freezed
-class UserInfo with _$UserInfo {
-  const factory UserInfo({
-    required String id,
-    required String email,
-    required String fullName,
-    required String role,
-    String? branchId,
-    String? branchName,
-    String? phone,
-    String? department,
-    String? position,
-    String? profilePhotoUrl,
-  }) = _UserInfo;
+class UserInfo {
+  final String id;
+  final String email;
+  final String fullName;
+  final String role;
+  final String? branchId;
+  final String? branchName;
+  final String? phone;
+  final String? department;
+  final String? position;
+  final String? profilePhotoUrl;
 
-  factory UserInfo.fromJson(Map<String, dynamic> json) =>
-      _$UserInfoFromJson(json);
+  UserInfo({
+    required this.id,
+    required this.email,
+    required this.fullName,
+    required this.role,
+    this.branchId,
+    this.branchName,
+    this.phone,
+    this.department,
+    this.position,
+    this.profilePhotoUrl,
+  });
+
+  factory UserInfo.fromJson(Map<String, dynamic> json) {
+    return UserInfo(
+      id: json['id'] as String,
+      email: json['email'] as String,
+      fullName: json['full_name'] as String,
+      role: json['role'] as String,
+      branchId: json['branch_id'] as String?,
+      branchName: json['branch_name'] as String?,
+      phone: json['phone'] as String?,
+      department: json['department'] as String?,
+      position: json['position'] as String?,
+      profilePhotoUrl: json['profile_photo_url'] as String?,
+    );
+  }
 }
 
 // ===========================================
 // OWNER DASHBOARD RESPONSES
 // ===========================================
-@freezed
-class DashboardMetrics with _$DashboardMetrics {
-  const factory DashboardMetrics({
-    required double totalRevenue,
-    required int totalOrders,
-    required int totalCustomers,
-    required int pendingApprovals,
-    required List<BranchMetrics> branchPerformance,
-    required List<ActivityItem> recentActivity,
-  }) = _DashboardMetrics;
+class DashboardMetrics {
+  final double totalRevenue;
+  final int totalOrders;
+  final int totalCustomers;
+  final int pendingApprovals;
+  final List<BranchMetrics> branchPerformance;
+  final List<ActivityItem> recentActivity;
 
-  factory DashboardMetrics.fromJson(Map<String, dynamic> json) =>
-      _$DashboardMetricsFromJson(json);
+  DashboardMetrics({
+    required this.totalRevenue,
+    required this.totalOrders,
+    required this.totalCustomers,
+    required this.pendingApprovals,
+    required this.branchPerformance,
+    required this.recentActivity,
+  });
+
+  factory DashboardMetrics.fromJson(Map<String, dynamic> json) {
+    return DashboardMetrics(
+      totalRevenue: (json['total_revenue'] as num).toDouble(),
+      totalOrders: json['total_orders'] as int,
+      totalCustomers: json['total_customers'] as int,
+      pendingApprovals: json['pending_approvals'] as int,
+      branchPerformance: (json['branch_performance'] as List)
+          .map((e) => BranchMetrics.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      recentActivity: (json['recent_activity'] as List)
+          .map((e) => ActivityItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 }
 
-@freezed
-class BranchMetrics with _$BranchMetrics {
-  const factory BranchMetrics({
-    required String id,
-    required String name,
-    required String code,
-    required double revenue,
-    required int orders,
-    required double target,
-    required double achievementPercentage,
-  }) = _BranchMetrics;
+class BranchMetrics {
+  final String id;
+  final String name;
+  final String code;
+  final double revenue;
+  final int orders;
+  final double target;
+  final double achievementPercentage;
 
-  factory BranchMetrics.fromJson(Map<String, dynamic> json) =>
-      _$BranchMetricsFromJson(json);
+  BranchMetrics({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.revenue,
+    required this.orders,
+    required this.target,
+    required this.achievementPercentage,
+  });
+
+  factory BranchMetrics.fromJson(Map<String, dynamic> json) {
+    return BranchMetrics(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      code: json['code'] as String,
+      revenue: (json['revenue'] as num).toDouble(),
+      orders: json['orders'] as int,
+      target: (json['target'] as num).toDouble(),
+      achievementPercentage: (json['achievement_percentage'] as num).toDouble(),
+    );
+  }
 }
 
-@freezed
-class ActivityItem with _$ActivityItem {
-  const factory ActivityItem({
-    required String id,
-    required String userName,
-    required String action,
-    required String details,
-    required String timestamp,
-    required String iconType,
-  }) = _ActivityItem;
+class ActivityItem {
+  final String id;
+  final String userName;
+  final String action;
+  final String details;
+  final String timestamp;
+  final String iconType;
 
-  factory ActivityItem.fromJson(Map<String, dynamic> json) =>
-      _$ActivityItemFromJson(json);
+  ActivityItem({
+    required this.id,
+    required this.userName,
+    required this.action,
+    required this.details,
+    required this.timestamp,
+    required this.iconType,
+  });
+
+  factory ActivityItem.fromJson(Map<String, dynamic> json) {
+    return ActivityItem(
+      id: json['id'] as String,
+      userName: json['user_name'] as String,
+      action: json['action'] as String,
+      details: json['details'] as String,
+      timestamp: json['timestamp'] as String,
+      iconType: json['icon_type'] as String,
+    );
+  }
 }
 
-@freezed
-class SalesRanking with _$SalesRanking {
-  const factory SalesRanking({
-    required int rank,
-    required String userId,
-    required String fullName,
-    required String branchName,
-    required double salesAmount,
-    required double target,
-    required double achievementPercentage,
-    required int totalOrders,
-    required String performanceLevel,
-  }) = _SalesRanking;
+class SalesRanking {
+  final int rank;
+  final String userId;
+  final String fullName;
+  final String branchName;
+  final double salesAmount;
+  final double target;
+  final double achievementPercentage;
+  final int totalOrders;
+  final String performanceLevel;
 
-  factory SalesRanking.fromJson(Map<String, dynamic> json) =>
-      _$SalesRankingFromJson(json);
+  SalesRanking({
+    required this.rank,
+    required this.userId,
+    required this.fullName,
+    required this.branchName,
+    required this.salesAmount,
+    required this.target,
+    required this.achievementPercentage,
+    required this.totalOrders,
+    required this.performanceLevel,
+  });
+
+  factory SalesRanking.fromJson(Map<String, dynamic> json) {
+    return SalesRanking(
+      rank: json['rank'] as int,
+      userId: json['user_id'] as String,
+      fullName: json['full_name'] as String,
+      branchName: json['branch_name'] as String,
+      salesAmount: (json['sales_amount'] as num).toDouble(),
+      target: (json['target'] as num).toDouble(),
+      achievementPercentage: (json['achievement_percentage'] as num).toDouble(),
+      totalOrders: json['total_orders'] as int,
+      performanceLevel: json['performance_level'] as String,
+    );
+  }
 }
 
-@freezed
-class BranchDetail with _$BranchDetail {
-  const factory BranchDetail({
-    required String id,
-    required String code,
-    required String name,
-    required String address,
-    required String phone,
-    required String email,
-    ManagerInfo? manager,
-    required int employeeCount,
-    required BranchMetrics metrics,
-  }) = _BranchDetail;
+class BranchDetail {
+  final String id;
+  final String code;
+  final String name;
+  final String address;
+  final String phone;
+  final String email;
+  final ManagerInfo? manager;
+  final int employeeCount;
+  final BranchMetrics metrics;
 
-  factory BranchDetail.fromJson(Map<String, dynamic> json) =>
-      _$BranchDetailFromJson(json);
+  BranchDetail({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.address,
+    required this.phone,
+    required this.email,
+    this.manager,
+    required this.employeeCount,
+    required this.metrics,
+  });
+
+  factory BranchDetail.fromJson(Map<String, dynamic> json) {
+    return BranchDetail(
+      id: json['id'] as String,
+      code: json['code'] as String,
+      name: json['name'] as String,
+      address: json['address'] as String,
+      phone: json['phone'] as String,
+      email: json['email'] as String,
+      manager: json['manager'] != null
+          ? ManagerInfo.fromJson(json['manager'] as Map<String, dynamic>)
+          : null,
+      employeeCount: json['employee_count'] as int,
+      metrics: BranchMetrics.fromJson(json['metrics'] as Map<String, dynamic>),
+    );
+  }
 }
 
-@freezed
-class ManagerInfo with _$ManagerInfo {
-  const factory ManagerInfo({
-    required String id,
-    required String fullName,
-    required String email,
-    required String phone,
-  }) = _ManagerInfo;
+class ManagerInfo {
+  final String id;
+  final String fullName;
+  final String email;
+  final String phone;
 
-  factory ManagerInfo.fromJson(Map<String, dynamic> json) =>
-      _$ManagerInfoFromJson(json);
+  ManagerInfo({
+    required this.id,
+    required this.fullName,
+    required this.email,
+    required this.phone,
+  });
+
+  factory ManagerInfo.fromJson(Map<String, dynamic> json) {
+    return ManagerInfo(
+      id: json['id'] as String,
+      fullName: json['full_name'] as String,
+      email: json['email'] as String,
+      phone: json['phone'] as String,
+    );
+  }
 }
 
-@freezed
-class BranchListItem with _$BranchListItem {
-  const factory BranchListItem({
-    required String id,
-    required String code,
-    required String name,
-    required String status,
-    required int employeeCount,
-    String? managerName,
-  }) = _BranchListItem;
+class BranchListItem {
+  final String id;
+  final String code;
+  final String name;
+  final String status;
+  final int employeeCount;
+  final String? managerName;
 
-  factory BranchListItem.fromJson(Map<String, dynamic> json) =>
-      _$BranchListItemFromJson(json);
+  BranchListItem({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.status,
+    required this.employeeCount,
+    this.managerName,
+  });
+
+  factory BranchListItem.fromJson(Map<String, dynamic> json) {
+    return BranchListItem(
+      id: json['id'] as String,
+      code: json['code'] as String,
+      name: json['name'] as String,
+      status: json['status'] as String,
+      employeeCount: json['employee_count'] as int,
+      managerName: json['manager_name'] as String?,
+    );
+  }
 }
 
 // ===========================================
 // KEPALA CABANG RESPONSES
 // ===========================================
-@freezed
-class BranchDashboard with _$BranchDashboard {
-  const factory BranchDashboard({
-    required String branchId,
-    required String branchName,
-    required String branchCode,
-    required int totalEmployees,
-    required int activeEmployees,
-    required int pendingJobdesk,
-    required int pendingWorkReports,
-    required int todayAttendance,
-    required int onLeave,
-  }) = _BranchDashboard;
+class BranchDashboard {
+  final String branchId;
+  final String branchName;
+  final String branchCode;
+  final int totalEmployees;
+  final int activeEmployees;
+  final int pendingJobdesk;
+  final int pendingWorkReports;
+  final int todayAttendance;
+  final int onLeave;
 
-  factory BranchDashboard.fromJson(Map<String, dynamic> json) =>
-      _$BranchDashboardFromJson(json);
+  BranchDashboard({
+    required this.branchId,
+    required this.branchName,
+    required this.branchCode,
+    required this.totalEmployees,
+    required this.activeEmployees,
+    required this.pendingJobdesk,
+    required this.pendingWorkReports,
+    required this.todayAttendance,
+    required this.onLeave,
+  });
+
+  factory BranchDashboard.fromJson(Map<String, dynamic> json) {
+    return BranchDashboard(
+      branchId: json['branch_id'] as String,
+      branchName: json['branch_name'] as String,
+      branchCode: json['branch_code'] as String,
+      totalEmployees: json['total_employees'] as int,
+      activeEmployees: json['active_employees'] as int,
+      pendingJobdesk: json['pending_jobdesk'] as int,
+      pendingWorkReports: json['pending_work_reports'] as int,
+      todayAttendance: json['today_attendance'] as int,
+      onLeave: json['on_leave'] as int,
+    );
+  }
 }
 
-@freezed
-class EmployeeSummary with _$EmployeeSummary {
-  const factory EmployeeSummary({
-    required String id,
-    required String fullName,
-    required String email,
-    required String role,
-    String? department,
-    String? phone,
-    required String status,
-    String? lastLoginAt,
-    String? jobdeskStatus,
-    String? workReportStatus,
-  }) = _EmployeeSummary;
+class EmployeeSummary {
+  final String id;
+  final String fullName;
+  final String email;
+  final String role;
+  final String? department;
+  final String? phone;
+  final String status;
+  final String? lastLoginAt;
+  final String? jobdeskStatus;
+  final String? workReportStatus;
 
-  factory EmployeeSummary.fromJson(Map<String, dynamic> json) =>
-      _$EmployeeSummaryFromJson(json);
+  EmployeeSummary({
+    required this.id,
+    required this.fullName,
+    required this.email,
+    required this.role,
+    this.department,
+    this.phone,
+    required this.status,
+    this.lastLoginAt,
+    this.jobdeskStatus,
+    this.workReportStatus,
+  });
+
+  factory EmployeeSummary.fromJson(Map<String, dynamic> json) {
+    return EmployeeSummary(
+      id: json['id'] as String,
+      fullName: json['full_name'] as String,
+      email: json['email'] as String,
+      role: json['role'] as String,
+      department: json['department'] as String?,
+      phone: json['phone'] as String?,
+      status: json['status'] as String,
+      lastLoginAt: json['last_login_at'] as String?,
+      jobdeskStatus: json['jobdesk_status'] as String?,
+      workReportStatus: json['work_report_status'] as String?,
+    );
+  }
 }
 
-@freezed
-class JobDeskReviewItem with _$JobDeskReviewItem {
-  const factory JobDeskReviewItem({
-    required String id,
-    required String employeeId,
-    required String employeeName,
-    required String title,
-    required String assignedDate,
-    required String submittedAt,
-    List<String>? photos,
-    String? notes,
-  }) = _JobDeskReviewItem;
+class JobDeskReviewItem {
+  final String id;
+  final String employeeId;
+  final String employeeName;
+  final String title;
+  final String assignedDate;
+  final String submittedAt;
+  final List<String>? photos;
+  final String? notes;
 
-  factory JobDeskReviewItem.fromJson(Map<String, dynamic> json) =>
-      _$JobDeskReviewItemFromJson(json);
+  JobDeskReviewItem({
+    required this.id,
+    required this.employeeId,
+    required this.employeeName,
+    required this.title,
+    required this.assignedDate,
+    required this.submittedAt,
+    this.photos,
+    this.notes,
+  });
+
+  factory JobDeskReviewItem.fromJson(Map<String, dynamic> json) {
+    return JobDeskReviewItem(
+      id: json['id'] as String,
+      employeeId: json['employee_id'] as String,
+      employeeName: json['employee_name'] as String,
+      title: json['title'] as String,
+      assignedDate: json['assigned_date'] as String,
+      submittedAt: json['submitted_at'] as String,
+      photos: (json['photos'] as List?)?.map((e) => e as String).toList(),
+      notes: json['notes'] as String?,
+    );
+  }
 }
 
-@freezed
-class WorkReportReviewItem with _$WorkReportReviewItem {
-  const factory WorkReportReviewItem({
-    required String id,
-    required String employeeId,
-    required String employeeName,
-    required String reportDate,
-    required String content,
-    String? achievements,
-    String? challenges,
-    List<String>? photos,
-    required String submittedAt,
-  }) = _WorkReportReviewItem;
+class WorkReportReviewItem {
+  final String id;
+  final String employeeId;
+  final String employeeName;
+  final String reportDate;
+  final String content;
+  final String? achievements;
+  final String? challenges;
+  final List<String>? photos;
+  final String submittedAt;
 
-  factory WorkReportReviewItem.fromJson(Map<String, dynamic> json) =>
-      _$WorkReportReviewItemFromJson(json);
+  WorkReportReviewItem({
+    required this.id,
+    required this.employeeId,
+    required this.employeeName,
+    required this.reportDate,
+    required this.content,
+    this.achievements,
+    this.challenges,
+    this.photos,
+    required this.submittedAt,
+  });
+
+  factory WorkReportReviewItem.fromJson(Map<String, dynamic> json) {
+    return WorkReportReviewItem(
+      id: json['id'] as String,
+      employeeId: json['employee_id'] as String,
+      employeeName: json['employee_name'] as String,
+      reportDate: json['report_date'] as String,
+      content: json['content'] as String,
+      achievements: json['achievements'] as String?,
+      challenges: json['challenges'] as String?,
+      photos: (json['photos'] as List?)?.map((e) => e as String).toList(),
+      submittedAt: json['submitted_at'] as String,
+    );
+  }
 }
 
-@freezed
-class AttendanceSummary with _$AttendanceSummary {
-  const factory AttendanceSummary({
-    required String date,
-    required int present,
-    required int absent,
-    required int onLeave,
-    required int late,
-  }) = _AttendanceSummary;
+class AttendanceSummary {
+  final String date;
+  final int present;
+  final int absent;
+  final int onLeave;
+  final int late;
 
-  factory AttendanceSummary.fromJson(Map<String, dynamic> json) =>
-      _$AttendanceSummaryFromJson(json);
+  AttendanceSummary({
+    required this.date,
+    required this.present,
+    required this.absent,
+    required this.onLeave,
+    required this.late,
+  });
+
+  factory AttendanceSummary.fromJson(Map<String, dynamic> json) {
+    return AttendanceSummary(
+      date: json['date'] as String,
+      present: json['present'] as int,
+      absent: json['absent'] as int,
+      onLeave: json['on_leave'] as int,
+      late: json['late'] as int,
+    );
+  }
 }
 
 // ===========================================
 // REQUEST BODIES
 // ===========================================
-@freezed
-class LoginRequest with _$LoginRequest {
-  const factory LoginRequest({
-    required String email,
-    required String password,
-  }) = _LoginRequest;
+class LoginRequest {
+  final String email;
+  final String password;
 
-  factory LoginRequest.fromJson(Map<String, dynamic> json) =>
-      _$LoginRequestFromJson(json);
+  LoginRequest({
+    required this.email,
+    required this.password,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'password': password,
+    };
+  }
 }
 
-@freezed
-class RefreshTokenRequest with _$RefreshTokenRequest {
-  const factory RefreshTokenRequest({
-    required String refreshToken,
-  }) = _RefreshTokenRequest;
+class RefreshTokenRequest {
+  final String refreshToken;
 
-  factory RefreshTokenRequest.fromJson(Map<String, dynamic> json) =>
-      _$RefreshTokenRequestFromJson(json);
+  RefreshTokenRequest({
+    required this.refreshToken,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'refresh_token': refreshToken,
+    };
+  }
 }
 
-@freezed
-class PasswordResetRequest with _$PasswordResetRequest {
-  const factory PasswordResetRequest({
-    required String email,
-  }) = _PasswordResetRequest;
+class PasswordResetRequest {
+  final String email;
 
-  factory PasswordResetRequest.fromJson(Map<String, dynamic> json) =>
-      _$PasswordResetRequestFromJson(json);
+  PasswordResetRequest({
+    required this.email,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+    };
+  }
 }
 
-@freezed
-class PasswordResetVerifyRequest with _$PasswordResetVerifyRequest {
-  const factory PasswordResetVerifyRequest({
-    required String email,
-    required String otp,
-    required String newPassword,
-  }) = _PasswordResetVerifyRequest;
+class PasswordResetVerifyRequest {
+  final String email;
+  final String otp;
+  final String newPassword;
 
-  factory PasswordResetVerifyRequest.fromJson(Map<String, dynamic> json) =>
-      _$PasswordResetVerifyRequestFromJson(json);
+  PasswordResetVerifyRequest({
+    required this.email,
+    required this.otp,
+    required this.newPassword,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'otp': otp,
+      'new_password': newPassword,
+    };
+  }
 }
 
-@freezed
-class RejectRequest with _$RejectRequest {
-  const factory RejectRequest({
-    required String reason,
-  }) = _RejectRequest;
+class RejectRequest {
+  final String reason;
 
-  factory RejectRequest.fromJson(Map<String, dynamic> json) =>
-      _$RejectRequestFromJson(json);
+  RejectRequest({
+    required this.reason,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'reason': reason,
+    };
+  }
 }
 
 // ===========================================
 // PAGINATION
 // ===========================================
-@freezed
-class PaginatedResponse<T> with _$PaginatedResponse<T> {
-  const factory PaginatedResponse({
-    required List<T> items,
-    required int total,
-    required int page,
-    required int perPage,
-    required int totalPages,
-  }) = _PaginatedResponse<T>;
+class PaginatedResponse<T> {
+  final List<T> items;
+  final int total;
+  final int page;
+  final int perPage;
+  final int totalPages;
+
+  PaginatedResponse({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.perPage,
+    required this.totalPages,
+  });
 
   factory PaginatedResponse.fromJson(
     Map<String, dynamic> json,
-    T Function(Object? json) fromJsonT,
-  ) =>
-      _$PaginatedResponseFromJson(json, fromJsonT);
+    T Function(Object?) fromJsonT,
+  ) {
+    return PaginatedResponse(
+      items: (json['items'] as List).map((e) => fromJsonT(e)).toList(),
+      total: json['total'] as int,
+      page: json['page'] as int,
+      perPage: json['per_page'] as int,
+      totalPages: json['total_pages'] as int,
+    );
+  }
 }
 
 // ===========================================
 // NOTIFICATION
 // ===========================================
-@freezed
-class NotificationItem with _$NotificationItem {
-  const factory NotificationItem({
-    required String id,
-    required String userId,
-    required String type,
-    required String title,
-    required String message,
-    Map<String, dynamic>? data,
-    required String status,
-    String? readAt,
-    required String createdAt,
-  }) = _NotificationItem;
+class NotificationItem {
+  final String id;
+  final String userId;
+  final String type;
+  final String title;
+  final String message;
+  final Map<String, dynamic>? data;
+  final String status;
+  final String? readAt;
+  final String createdAt;
 
-  factory NotificationItem.fromJson(Map<String, dynamic> json) =>
-      _$NotificationItemFromJson(json);
+  NotificationItem({
+    required this.id,
+    required this.userId,
+    required this.type,
+    required this.title,
+    required this.message,
+    this.data,
+    required this.status,
+    this.readAt,
+    required this.createdAt,
+  });
+
+  factory NotificationItem.fromJson(Map<String, dynamic> json) {
+    return NotificationItem(
+      id: json['id'] as String,
+      userId: json['user_id'] as String,
+      type: json['type'] as String,
+      title: json['title'] as String,
+      message: json['message'] as String,
+      data: json['data'] as Map<String, dynamic>?,
+      status: json['status'] as String,
+      readAt: json['read_at'] as String?,
+      createdAt: json['created_at'] as String,
+    );
+  }
 }

@@ -13,6 +13,7 @@ dependencies:
   # State Management
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
+  provider: ^6.1.1
 
   # Routing
   go_router: ^14.2.0
@@ -59,7 +60,7 @@ dev_dependencies:
   json_serializable: ^6.8.0
   drift_dev: ^2.18.0
   flutter_launcher_icons: ^0.13.1
-  flutter_native_splash: ^2.4.0
+  # flutter_native_splash: ^2.4.0  # DISABLED - causing Gradle build errors
 
 flutter:
   uses-material-design: true
@@ -76,12 +77,12 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/images/logo.png"
   min_sdk_android: 21
 
-# Splash Screen Configuration
-flutter_native_splash:
-  color: "#FFFFFF"
-  image: "assets/images/logo.png"
-  android: true
-  ios: true
-  android_12:
-    image: "assets/images/logo.png"
-    color: "#FFFFFF"
+# Splash Screen Configuration (DISABLED - causing build errors)
+# flutter_native_splash:
+#   color: "#FFFFFF"
+#   image: "assets/images/logo.png"
+#   android: true
+#   ios: true
+#   android_12:
+#     image: "assets/images/logo.png"
+#     color: "#FFFFFF"

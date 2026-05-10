@@ -6,10 +6,11 @@ use axum::{
 };
 use chrono::{Datelike, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
 
 use crate::{
+    AppState,
     config::Config,
     error::AppError,
     middleware::{CurrentUser, UserRole},
@@ -74,10 +75,11 @@ pub struct SalesRanking {
 /// GET /api/owner/dashboard
 /// ===========================================
 pub async fn get_dashboard_metrics(
-    State(pool): State<Pool<Postgres>>,
+    State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<DashboardQuery>,
 ) -> Result<Json<DashboardMetrics>, AppError> {
+    let pool = &state.pool;
     // Verify user is owner
     if current_user.role != UserRole::Owner {
         return Err(AppError::Forbidden);
@@ -96,21 +98,21 @@ pub async fn get_dashboard_metrics(
         SELECT COALESCE(SUM(total_amount), 0.0)
         FROM payroll_records
         WHERE status = 'paid'
-        AND created_at >= $1
-        AND created_at <= $2
+        AND created_at >= ?1
+        AND created_at <= ?2
         "#
     )
     .bind(start_date)
     .bind(end_date)
-    .fetch_one(&pool)
+    .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
     // Get total employees
     let total_employees: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM users WHERE status = 'active'"
+        "SELECT COUNT(*) FROM users WHERE is_active = 1"
     )
-    .fetch_one(&pool)
+    .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
@@ -118,14 +120,14 @@ pub async fn get_dashboard_metrics(
     let pending_work_reports: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM work_reports WHERE status = 'submitted'"
     )
-    .fetch_one(&pool)
+    .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
     let pending_jobdesk: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM jobdesk_assignments WHERE status = 'completed' AND approved_by IS NULL"
     )
-    .fetch_one(&pool)
+    .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
@@ -151,14 +153,14 @@ pub async fn get_dashboard_metrics(
 /// HELPER: Get Branch Metrics
 /// ===========================================
 async fn get_branch_metrics(
-    pool: &Pool<Postgres>,
+    pool: &Pool<Sqlite>,
     start_date: NaiveDate,
     end_date: NaiveDate,
 ) -> Result<Vec<BranchMetrics>, AppError> {
     let branches: Vec<BranchMetrics> = sqlx::query_as(
         r#"
         SELECT 
-            b.id::text,
+            b.id,
             b.name,
             b.code,
             COALESCE(SUM(p.total_amount), 0.0) as revenue,
@@ -166,12 +168,12 @@ async fn get_branch_metrics(
             100000.0 as target, -- Example monthly target per branch
             0.0 as achievement_percentage
         FROM branches b
-        LEFT JOIN users u ON u.branch_id = b.id AND u.status = 'active'
+        LEFT JOIN users u ON u.branch_id = b.id AND u.is_active = 1
         LEFT JOIN payroll_records p ON p.user_id = u.id 
             AND p.status = 'paid'
-            AND p.created_at >= $1 
-            AND p.created_at <= $2
-        WHERE b.status = 'active'
+            AND p.created_at >= ?1 
+            AND p.created_at <= ?2
+        WHERE b.is_active = 1
         GROUP BY b.id, b.name, b.code
         ORDER BY revenue DESC
         "#
@@ -202,22 +204,22 @@ async fn get_branch_metrics(
 /// HELPER: Get Recent Activity
 /// ===========================================
 async fn get_recent_activity(
-    pool: &Pool<Postgres>,
+    pool: &Pool<Sqlite>,
     limit: i64,
 ) -> Result<Vec<ActivityItem>, AppError> {
     let activities: Vec<ActivityItem> = sqlx::query_as(
         r#"
         SELECT 
-            id::text,
-            full_name as user_name,
+            id,
+            username as user_name,
             'login' as action,
             'Logged in to system' as details,
-            last_login_at::text as timestamp,
+            updated_at as timestamp,
             'login' as icon_type
         FROM users
-        WHERE last_login_at IS NOT NULL
-        ORDER BY last_login_at DESC
-        LIMIT $1
+        WHERE updated_at IS NOT NULL
+        ORDER BY updated_at DESC
+        LIMIT ?1
         "#
     )
     .bind(limit)
@@ -233,10 +235,11 @@ async fn get_recent_activity(
 /// GET /api/owner/sales-ranking
 /// ===========================================
 pub async fn get_sales_ranking(
-    State(pool): State<Pool<Postgres>>,
+    State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<DashboardQuery>,
 ) -> Result<Json<Vec<SalesRanking>>, AppError> {
+    let pool = &state.pool;
     // Verify user is owner
     if current_user.role != UserRole::Owner {
         return Err(AppError::Forbidden);
@@ -252,8 +255,8 @@ pub async fn get_sales_ranking(
         r#"
         SELECT 
             ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(p.total_amount), 0.0) DESC) as rank,
-            u.id::text as user_id,
-            u.full_name,
+            u.id as user_id,
+            u.username as full_name,
             b.name as branch_name,
             COALESCE(SUM(p.total_amount), 0.0) as sales_amount,
             50000.0 as target, -- Example monthly sales target
@@ -264,17 +267,17 @@ pub async fn get_sales_ranking(
         JOIN branches b ON b.id = u.branch_id
         LEFT JOIN payroll_records p ON p.user_id = u.id 
             AND p.status = 'paid'
-            AND p.created_at >= $1 
-            AND p.created_at <= $2
+            AND p.created_at >= ?1 
+            AND p.created_at <= ?2
         WHERE u.role = 'sales'
-        AND u.status = 'active'
-        GROUP BY u.id, u.full_name, b.name
+        AND u.is_active = 1
+        GROUP BY u.id, u.username, b.name
         ORDER BY sales_amount DESC
         "#
     )
     .bind(start_date)
     .bind(end_date)
-    .fetch_all(&pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
@@ -331,10 +334,11 @@ pub struct ManagerInfo {
 }
 
 pub async fn get_branch_detail(
-    State(pool): State<Pool<Postgres>>,
+    State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<CurrentUser>,
-    axum::extract::Path(branch_id): axum::extract::Path<uuid::Uuid>,
+    axum::extract::Path(branch_id): axum::extract::Path<String>,
 ) -> Result<Json<BranchDetail>, AppError> {
+    let pool = &state.pool;
     // Verify user is owner
     if current_user.role != UserRole::Owner {
         return Err(AppError::Forbidden);
@@ -344,35 +348,35 @@ pub async fn get_branch_detail(
     let start_date = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap();
 
     // Get branch with manager info
-    let branch: (String, String, String, String, String, String, Option<uuid::Uuid>, Option<String>, Option<String>, Option<String>) = sqlx::query_as(
+    let branch: (String, String, String, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>) = sqlx::query_as(
         r#"
         SELECT 
-            b.id::text,
+            b.id,
             b.code,
             b.name,
             b.address,
             b.phone,
-            b.email,
+            'branch@email.com' as email,
             m.id as manager_id,
-            m.full_name as manager_name,
-            m.email as manager_email,
-            m.phone as manager_phone
+            m.username as manager_name,
+            m.username as manager_email,
+            '000' as manager_phone
         FROM branches b
         LEFT JOIN users m ON m.id = b.manager_id
-        WHERE b.id = $1
+        WHERE b.id = ?1
         "#
     )
-    .bind(branch_id)
-    .fetch_one(&pool)
+    .bind(&branch_id)
+    .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
     // Get employee count
     let employee_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM users WHERE branch_id = $1 AND status = 'active'"
+        "SELECT COUNT(*) FROM users WHERE branch_id = ?1 AND is_active = 1"
     )
-    .bind(branch_id)
-    .fetch_one(&pool)
+    .bind(&branch_id)
+    .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
@@ -380,7 +384,7 @@ pub async fn get_branch_detail(
     let metrics: BranchMetrics = sqlx::query_as(
         r#"
         SELECT 
-            b.id::text,
+            b.id,
             b.name,
             b.code,
             COALESCE(SUM(p.total_amount), 0.0) as revenue,
@@ -388,17 +392,17 @@ pub async fn get_branch_detail(
             100000.0 as target,
             0.0 as achievement_percentage
         FROM branches b
-        LEFT JOIN users u ON u.branch_id = b.id AND u.status = 'active'
+        LEFT JOIN users u ON u.branch_id = b.id AND u.is_active = 1
         LEFT JOIN payroll_records p ON p.user_id = u.id 
             AND p.status = 'paid'
-            AND p.created_at >= $1
-        WHERE b.id = $2
+            AND p.created_at >= ?1
+        WHERE b.id = ?2
         GROUP BY b.id, b.name, b.code
         "#
     )
     .bind(start_date)
-    .bind(branch_id)
-    .fetch_one(&pool)
+    .bind(&branch_id)
+    .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
@@ -443,9 +447,10 @@ pub struct BranchListItem {
 }
 
 pub async fn get_all_branches(
-    State(pool): State<Pool<Postgres>>,
+    State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<BranchListItem>>, AppError> {
+    let pool = &state.pool;
     // Verify user is owner
     if current_user.role != UserRole::Owner {
         return Err(AppError::Forbidden);
@@ -454,20 +459,20 @@ pub async fn get_all_branches(
     let branches: Vec<BranchListItem> = sqlx::query_as(
         r#"
         SELECT 
-            b.id::text,
+            b.id,
             b.code,
             b.name,
-            b.status::text,
+            CASE WHEN b.is_active = 1 THEN 'active' ELSE 'inactive' END as status,
             COUNT(DISTINCT u.id) as employee_count,
-            m.full_name as manager_name
+            m.username as manager_name
         FROM branches b
-        LEFT JOIN users u ON u.branch_id = b.id AND u.status = 'active'
+        LEFT JOIN users u ON u.branch_id = b.id AND u.is_active = 1
         LEFT JOIN users m ON m.id = b.manager_id
-        GROUP BY b.id, b.code, b.name, b.status, m.full_name
+        GROUP BY b.id, b.code, b.name, b.is_active, m.username
         ORDER BY b.code
         "#
     )
-    .fetch_all(&pool)
+    .fetch_all(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 

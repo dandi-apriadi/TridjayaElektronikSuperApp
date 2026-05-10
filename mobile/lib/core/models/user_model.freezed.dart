@@ -23,8 +23,23 @@ mixin _$UserModel {
   String get id => throw _privateConstructorUsedError;
   String get username => throw _privateConstructorUsedError;
   UserRole get role => throw _privateConstructorUsedError;
+  String? get email => throw _privateConstructorUsedError;
+  String? get fullName => throw _privateConstructorUsedError;
+  @JsonKey(name: 'branch_id')
   String? get branchId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'branch_name')
   String? get branchName => throw _privateConstructorUsedError;
+  String? get phone => throw _privateConstructorUsedError;
+  String? get department => throw _privateConstructorUsedError;
+  String? get position => throw _privateConstructorUsedError;
+  @JsonKey(name: 'profile_photo_url')
+  String? get profilePhotoUrl => throw _privateConstructorUsedError;
+  @JsonKey(name: 'employee_id')
+  String? get employeeId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'last_login_at')
+  DateTime? get lastLoginAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'created_at')
+  DateTime? get createdAt => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -41,8 +56,17 @@ abstract class $UserModelCopyWith<$Res> {
       {String id,
       String username,
       UserRole role,
-      String? branchId,
-      String? branchName});
+      String? email,
+      String? fullName,
+      @JsonKey(name: 'branch_id') String? branchId,
+      @JsonKey(name: 'branch_name') String? branchName,
+      String? phone,
+      String? department,
+      String? position,
+      @JsonKey(name: 'profile_photo_url') String? profilePhotoUrl,
+      @JsonKey(name: 'employee_id') String? employeeId,
+      @JsonKey(name: 'last_login_at') DateTime? lastLoginAt,
+      @JsonKey(name: 'created_at') DateTime? createdAt});
 }
 
 /// @nodoc
@@ -61,8 +85,17 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
     Object? id = null,
     Object? username = null,
     Object? role = null,
+    Object? email = freezed,
+    Object? fullName = freezed,
     Object? branchId = freezed,
     Object? branchName = freezed,
+    Object? phone = freezed,
+    Object? department = freezed,
+    Object? position = freezed,
+    Object? profilePhotoUrl = freezed,
+    Object? employeeId = freezed,
+    Object? lastLoginAt = freezed,
+    Object? createdAt = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -77,6 +110,14 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
           ? _value.role
           : role // ignore: cast_nullable_to_non_nullable
               as UserRole,
+      email: freezed == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String?,
+      fullName: freezed == fullName
+          ? _value.fullName
+          : fullName // ignore: cast_nullable_to_non_nullable
+              as String?,
       branchId: freezed == branchId
           ? _value.branchId
           : branchId // ignore: cast_nullable_to_non_nullable
@@ -85,6 +126,34 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
           ? _value.branchName
           : branchName // ignore: cast_nullable_to_non_nullable
               as String?,
+      phone: freezed == phone
+          ? _value.phone
+          : phone // ignore: cast_nullable_to_non_nullable
+              as String?,
+      department: freezed == department
+          ? _value.department
+          : department // ignore: cast_nullable_to_non_nullable
+              as String?,
+      position: freezed == position
+          ? _value.position
+          : position // ignore: cast_nullable_to_non_nullable
+              as String?,
+      profilePhotoUrl: freezed == profilePhotoUrl
+          ? _value.profilePhotoUrl
+          : profilePhotoUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+      employeeId: freezed == employeeId
+          ? _value.employeeId
+          : employeeId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      lastLoginAt: freezed == lastLoginAt
+          ? _value.lastLoginAt
+          : lastLoginAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      createdAt: freezed == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
     ) as $Val);
   }
 }
@@ -101,8 +170,17 @@ abstract class _$$UserModelImplCopyWith<$Res>
       {String id,
       String username,
       UserRole role,
-      String? branchId,
-      String? branchName});
+      String? email,
+      String? fullName,
+      @JsonKey(name: 'branch_id') String? branchId,
+      @JsonKey(name: 'branch_name') String? branchName,
+      String? phone,
+      String? department,
+      String? position,
+      @JsonKey(name: 'profile_photo_url') String? profilePhotoUrl,
+      @JsonKey(name: 'employee_id') String? employeeId,
+      @JsonKey(name: 'last_login_at') DateTime? lastLoginAt,
+      @JsonKey(name: 'created_at') DateTime? createdAt});
 }
 
 /// @nodoc
@@ -119,8 +197,17 @@ class __$$UserModelImplCopyWithImpl<$Res>
     Object? id = null,
     Object? username = null,
     Object? role = null,
+    Object? email = freezed,
+    Object? fullName = freezed,
     Object? branchId = freezed,
     Object? branchName = freezed,
+    Object? phone = freezed,
+    Object? department = freezed,
+    Object? position = freezed,
+    Object? profilePhotoUrl = freezed,
+    Object? employeeId = freezed,
+    Object? lastLoginAt = freezed,
+    Object? createdAt = freezed,
   }) {
     return _then(_$UserModelImpl(
       id: null == id
@@ -135,6 +222,14 @@ class __$$UserModelImplCopyWithImpl<$Res>
           ? _value.role
           : role // ignore: cast_nullable_to_non_nullable
               as UserRole,
+      email: freezed == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String?,
+      fullName: freezed == fullName
+          ? _value.fullName
+          : fullName // ignore: cast_nullable_to_non_nullable
+              as String?,
       branchId: freezed == branchId
           ? _value.branchId
           : branchId // ignore: cast_nullable_to_non_nullable
@@ -143,6 +238,34 @@ class __$$UserModelImplCopyWithImpl<$Res>
           ? _value.branchName
           : branchName // ignore: cast_nullable_to_non_nullable
               as String?,
+      phone: freezed == phone
+          ? _value.phone
+          : phone // ignore: cast_nullable_to_non_nullable
+              as String?,
+      department: freezed == department
+          ? _value.department
+          : department // ignore: cast_nullable_to_non_nullable
+              as String?,
+      position: freezed == position
+          ? _value.position
+          : position // ignore: cast_nullable_to_non_nullable
+              as String?,
+      profilePhotoUrl: freezed == profilePhotoUrl
+          ? _value.profilePhotoUrl
+          : profilePhotoUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+      employeeId: freezed == employeeId
+          ? _value.employeeId
+          : employeeId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      lastLoginAt: freezed == lastLoginAt
+          ? _value.lastLoginAt
+          : lastLoginAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      createdAt: freezed == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
     ));
   }
 }
@@ -154,8 +277,17 @@ class _$UserModelImpl implements _UserModel {
       {required this.id,
       required this.username,
       required this.role,
-      this.branchId,
-      this.branchName});
+      this.email,
+      this.fullName,
+      @JsonKey(name: 'branch_id') this.branchId,
+      @JsonKey(name: 'branch_name') this.branchName,
+      this.phone,
+      this.department,
+      this.position,
+      @JsonKey(name: 'profile_photo_url') this.profilePhotoUrl,
+      @JsonKey(name: 'employee_id') this.employeeId,
+      @JsonKey(name: 'last_login_at') this.lastLoginAt,
+      @JsonKey(name: 'created_at') this.createdAt});
 
   factory _$UserModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserModelImplFromJson(json);
@@ -167,13 +299,37 @@ class _$UserModelImpl implements _UserModel {
   @override
   final UserRole role;
   @override
+  final String? email;
+  @override
+  final String? fullName;
+  @override
+  @JsonKey(name: 'branch_id')
   final String? branchId;
   @override
+  @JsonKey(name: 'branch_name')
   final String? branchName;
+  @override
+  final String? phone;
+  @override
+  final String? department;
+  @override
+  final String? position;
+  @override
+  @JsonKey(name: 'profile_photo_url')
+  final String? profilePhotoUrl;
+  @override
+  @JsonKey(name: 'employee_id')
+  final String? employeeId;
+  @override
+  @JsonKey(name: 'last_login_at')
+  final DateTime? lastLoginAt;
+  @override
+  @JsonKey(name: 'created_at')
+  final DateTime? createdAt;
 
   @override
   String toString() {
-    return 'UserModel(id: $id, username: $username, role: $role, branchId: $branchId, branchName: $branchName)';
+    return 'UserModel(id: $id, username: $username, role: $role, email: $email, fullName: $fullName, branchId: $branchId, branchName: $branchName, phone: $phone, department: $department, position: $position, profilePhotoUrl: $profilePhotoUrl, employeeId: $employeeId, lastLoginAt: $lastLoginAt, createdAt: $createdAt)';
   }
 
   @override
@@ -185,16 +341,46 @@ class _$UserModelImpl implements _UserModel {
             (identical(other.username, username) ||
                 other.username == username) &&
             (identical(other.role, role) || other.role == role) &&
+            (identical(other.email, email) || other.email == email) &&
+            (identical(other.fullName, fullName) ||
+                other.fullName == fullName) &&
             (identical(other.branchId, branchId) ||
                 other.branchId == branchId) &&
             (identical(other.branchName, branchName) ||
-                other.branchName == branchName));
+                other.branchName == branchName) &&
+            (identical(other.phone, phone) || other.phone == phone) &&
+            (identical(other.department, department) ||
+                other.department == department) &&
+            (identical(other.position, position) ||
+                other.position == position) &&
+            (identical(other.profilePhotoUrl, profilePhotoUrl) ||
+                other.profilePhotoUrl == profilePhotoUrl) &&
+            (identical(other.employeeId, employeeId) ||
+                other.employeeId == employeeId) &&
+            (identical(other.lastLoginAt, lastLoginAt) ||
+                other.lastLoginAt == lastLoginAt) &&
+            (identical(other.createdAt, createdAt) ||
+                other.createdAt == createdAt));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, id, username, role, branchId, branchName);
+  int get hashCode => Object.hash(
+      runtimeType,
+      id,
+      username,
+      role,
+      email,
+      fullName,
+      branchId,
+      branchName,
+      phone,
+      department,
+      position,
+      profilePhotoUrl,
+      employeeId,
+      lastLoginAt,
+      createdAt);
 
   @JsonKey(ignore: true)
   @override
@@ -212,11 +398,21 @@ class _$UserModelImpl implements _UserModel {
 
 abstract class _UserModel implements UserModel {
   const factory _UserModel(
-      {required final String id,
-      required final String username,
-      required final UserRole role,
-      final String? branchId,
-      final String? branchName}) = _$UserModelImpl;
+          {required final String id,
+          required final String username,
+          required final UserRole role,
+          final String? email,
+          final String? fullName,
+          @JsonKey(name: 'branch_id') final String? branchId,
+          @JsonKey(name: 'branch_name') final String? branchName,
+          final String? phone,
+          final String? department,
+          final String? position,
+          @JsonKey(name: 'profile_photo_url') final String? profilePhotoUrl,
+          @JsonKey(name: 'employee_id') final String? employeeId,
+          @JsonKey(name: 'last_login_at') final DateTime? lastLoginAt,
+          @JsonKey(name: 'created_at') final DateTime? createdAt}) =
+      _$UserModelImpl;
 
   factory _UserModel.fromJson(Map<String, dynamic> json) =
       _$UserModelImpl.fromJson;
@@ -228,9 +424,33 @@ abstract class _UserModel implements UserModel {
   @override
   UserRole get role;
   @override
+  String? get email;
+  @override
+  String? get fullName;
+  @override
+  @JsonKey(name: 'branch_id')
   String? get branchId;
   @override
+  @JsonKey(name: 'branch_name')
   String? get branchName;
+  @override
+  String? get phone;
+  @override
+  String? get department;
+  @override
+  String? get position;
+  @override
+  @JsonKey(name: 'profile_photo_url')
+  String? get profilePhotoUrl;
+  @override
+  @JsonKey(name: 'employee_id')
+  String? get employeeId;
+  @override
+  @JsonKey(name: 'last_login_at')
+  DateTime? get lastLoginAt;
+  @override
+  @JsonKey(name: 'created_at')
+  DateTime? get createdAt;
   @override
   @JsonKey(ignore: true)
   _$$UserModelImplCopyWith<_$UserModelImpl> get copyWith =>

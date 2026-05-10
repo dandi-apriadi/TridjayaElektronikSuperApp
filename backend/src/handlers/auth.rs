@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use axum::{
     extract::State,
     Json,
@@ -22,13 +23,25 @@ use crate::{
 };
 
 pub async fn login(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<LoginRequest>,
 ) -> AppResult<Json<LoginResponse>> {
     // Validate input
-    if req.username.is_empty() || req.password.is_empty() {
+    if req.username.is_empty() && req.password.is_empty() {
         return Err(AppError::BadRequest(
-            "Email dan password harus diisi".to_string(),
+            "Username dan password tidak boleh kosong. Silakan masukkan username dan password Anda.".to_string(),
+        ));
+    }
+    
+    if req.username.is_empty() {
+        return Err(AppError::BadRequest(
+            "Username tidak boleh kosong. Silakan masukkan username Anda.".to_string(),
+        ));
+    }
+    
+    if req.password.is_empty() {
+        return Err(AppError::BadRequest(
+            "Password tidak boleh kosong. Silakan masukkan password Anda.".to_string(),
         ));
     }
 
@@ -36,12 +49,18 @@ pub async fn login(
     let user = get_user_by_username(&state.pool, &req.username)
         .await
         .map_err(|e| AppError::Database(e))?
-        .ok_or_else(|| AppError::Auth("Email atau password salah".to_string()))?;
+        .ok_or_else(|| AppError::Auth("User tidak terdaftar. Silakan daftar terlebih dahulu.".to_string()))?;
+
+    if !user.is_active {
+        return Err(AppError::Auth("Akun Anda tidak aktif. Silakan hubungi administrator.".to_string()));
+    }
 
     // Verify password
-    let password_valid = verify_password(&req.password, &user.password_hash)?;
-    if !password_valid {
-        return Err(AppError::Auth("Email atau password salah".to_string()));
+    let is_valid = verify_password(&req.password, &user.password_hash)
+        .map_err(|_| AppError::Auth("Terjadi kesalahan saat memverifikasi password. Silakan coba lagi nanti.".to_string()))?;
+    
+    if !is_valid {
+        return Err(AppError::Auth("Password salah. Password yang Anda masukkan tidak sesuai. Silakan periksa kembali password Anda dan coba lagi.".to_string()));
     }
 
     // Get branch name if user has branch
@@ -76,7 +95,7 @@ pub async fn login(
 }
 
 pub async fn logout(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<RefreshTokenRequest>,
 ) -> AppResult<Json<LogoutResponse>> {
     // Revoke the refresh token
@@ -90,7 +109,7 @@ pub async fn logout(
 }
 
 pub async fn refresh_token(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<RefreshTokenRequest>,
 ) -> AppResult<Json<LoginResponse>> {
     // Decode and validate refresh token
@@ -153,7 +172,7 @@ pub async fn refresh_token(
 }
 
 pub async fn password_reset_request(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<PasswordResetRequest>,
 ) -> AppResult<Json<PasswordResetResponse>> {
     if req.username.is_empty() {
@@ -189,7 +208,7 @@ pub async fn password_reset_request(
 }
 
 pub async fn password_reset_verify(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<PasswordResetVerifyRequest>,
 ) -> AppResult<Json<PasswordResetResponse>> {
     // Validate input
@@ -243,3 +262,4 @@ pub async fn password_reset_verify(
         message: "Password berhasil direset. Silakan login dengan password baru.".to_string(),
     }))
 }
+

@@ -281,7 +281,7 @@ class _PerformanceRankingScreenState extends ConsumerState<PerformanceRankingScr
                 children: [
                   Icon(icon, size: 16, color: AppColors.textHint),
                   const SizedBox(width: 8),
-                  Text(item['name']),
+                  Text(item['name'] as String),
                 ],
               ),
             );

@@ -7,40 +7,49 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
 
 final dioClientProvider = Provider<DioClient>((ref) {
-  return DioClient();
+  final client = DioClient();
+  client.initialize();
+  return client;
 });
 
 class DioClient {
-  late final Dio _dio;
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  static final DioClient _instance = DioClient._internal();
+  factory DioClient() => _instance;
+  DioClient._internal();
 
-  // Multiple fallback URLs for different environments
-  static final List<String> _fallbackUrls = [
-    'http://10.0.2.2:8080/api',        // Android emulator
-    'http://localhost:8080/api',        // iOS simulator / web
-    'http://127.0.0.1:8080/api',        // Localhost
-    'http://192.168.1.100:8080/api',    // Common local network
+  late Dio _dio;
+  String? _authToken;
+
+  static const List<String> _fallbackUrls = [
+    'http://10.0.2.2:8080/api',
+    'http://localhost:8080/api',
   ];
 
-  DioClient() {
+  Dio get dio => _dio;
+
+  void initialize() {
     final baseUrl = _getBaseUrl();
     
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 60),
-        sendTimeout: const Duration(seconds: 30),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        validateStatus: (status) => status != null && status < 500,
-      ),
-    );
+    // Ambil timeout dari env atau gunakan default
+    final connectTimeout = int.tryParse(dotenv.env['CONNECT_TIMEOUT'] ?? '30') ?? 30;
+    final receiveTimeout = int.tryParse(dotenv.env['RECEIVE_TIMEOUT'] ?? '30') ?? 30;
+
+    print('🔌 DioClient initialized with baseUrl: $baseUrl');
+    
+    _dio = Dio(BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: Duration(seconds: connectTimeout),
+      receiveTimeout: Duration(seconds: receiveTimeout),
+      sendTimeout: Duration(seconds: connectTimeout),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      validateStatus: (status) => status != null && status < 500,
+    ));
 
     _dio.interceptors.addAll([
-      _AuthInterceptor(_storage),
+      _AuthInterceptor(const FlutterSecureStorage()),
       _ErrorHandlingInterceptor(),
       _RequestIdInterceptor(),
       LogInterceptor(
@@ -51,12 +60,14 @@ class DioClient {
     ]);
     
     debugPrint('[DioClient] Initialized with baseUrl: $baseUrl');
+    debugPrint('[DioClient] 🔍 VERIFIED BASE URL: ${_dio.options.baseUrl}');
   }
   
   /// Get base URL from environment or use smart fallback
   String _getBaseUrl() {
     // First, try to get from .env
-    final envUrl = dotenv.env['API_BASE_URL'];
+    String? envUrl = dotenv.env['API_BASE_URL'];
+
     if (envUrl != null && envUrl.isNotEmpty) {
       return envUrl;
     }
@@ -91,7 +102,72 @@ class DioClient {
     return _fallbackUrls[0];
   }
 
-  Dio get dio => _dio;
+  /// Ping server untuk test koneksi
+  /// Mengembalikan true jika server terhubung, false jika tidak
+  Future<bool> pingServer() async {
+    try {
+      debugPrint('[DioClient] Pinging server...');
+      final response = await _dio.get('/ping');
+      if (response.statusCode == 200) {
+        debugPrint('[DioClient] Ping successful: ${response.data}');
+        return true;
+      }
+      debugPrint('[DioClient] Ping failed with status: ${response.statusCode}');
+      return false;
+    } on DioException catch (e) {
+      debugPrint('[DioClient] Ping error: ${e.type} - ${e.message}');
+      return false;
+    } catch (e) {
+      debugPrint('[DioClient] Ping unexpected error: $e');
+      return false;
+    }
+  }
+
+  /// Health check dengan detail lengkap
+  /// Mengembalikan status koneksi dan informasi server
+  Future<Map<String, dynamic>> healthCheck() async {
+    try {
+      debugPrint('[DioClient] Checking server health...');
+      final response = await _dio.get('/health');
+      if (response.statusCode == 200) {
+        debugPrint('[DioClient] Health check successful: ${response.data}');
+        return {
+          'connected': true,
+          'status': response.data['status'],
+          'database': response.data['database'],
+          'timestamp': response.data['timestamp'],
+          'version': response.data['version'],
+        };
+      }
+      debugPrint('[DioClient] Health check failed with status: ${response.statusCode}');
+      return {
+        'connected': false,
+        'error': 'Server returned status ${response.statusCode}',
+      };
+    } on DioException catch (e) {
+      debugPrint('[DioClient] Health check error: ${e.type} - ${e.message}');
+      String errorMsg = 'Tidak dapat terhubung ke server';
+      if (e.type == DioExceptionType.connectionTimeout) {
+        errorMsg = 'Koneksi timeout. Server tidak merespons.';
+      } else if (e.type == DioExceptionType.connectionError) {
+        errorMsg = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      } else if (e.type == DioExceptionType.badResponse) {
+        errorMsg = 'Server mengembalikan respon yang tidak valid.';
+      }
+      return {
+        'connected': false,
+        'error': errorMsg,
+        'detail': e.message,
+      };
+    } catch (e) {
+      debugPrint('[DioClient] Health check unexpected error: $e');
+      return {
+        'connected': false,
+        'error': 'Terjadi kesalahan tidak terduga',
+        'detail': e.toString(),
+      };
+    }
+  }
 }
 
 class _AuthInterceptor extends Interceptor {
@@ -244,12 +320,5 @@ class _RequestIdInterceptor extends Interceptor {
     options.headers['X-Request-ID'] =
         DateTime.now().millisecondsSinceEpoch.toString();
     handler.next(options);
-  }
-}
-
-void debugPrint(String message) {
-  if (kDebugMode) {
-    // ignore: avoid_print
-    print('[DioClient] $message');
   }
 }

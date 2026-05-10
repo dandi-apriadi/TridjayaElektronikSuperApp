@@ -51,6 +51,11 @@ pub enum UserRole {
     Admin,
     Sales,
     Driver,
+    Teknisi,
+    Gudang,
+    Kasir,
+    Marketing,
+    CS, // Customer Service
 }
 
 impl UserRole {
@@ -61,6 +66,11 @@ impl UserRole {
             UserRole::Admin => "Admin",
             UserRole::Sales => "Sales",
             UserRole::Driver => "Driver",
+            UserRole::Teknisi => "Teknisi",
+            UserRole::Gudang => "Gudang",
+            UserRole::Kasir => "Kasir",
+            UserRole::Marketing => "Marketing",
+            UserRole::CS => "CS",
         }
     }
 
@@ -71,6 +81,11 @@ impl UserRole {
             "Admin" => Some(UserRole::Admin),
             "Sales" => Some(UserRole::Sales),
             "Driver" => Some(UserRole::Driver),
+            "Teknisi" => Some(UserRole::Teknisi),
+            "Gudang" => Some(UserRole::Gudang),
+            "Kasir" => Some(UserRole::Kasir),
+            "Marketing" => Some(UserRole::Marketing),
+            "CS" => Some(UserRole::CS),
             _ => None,
         }
     }

@@ -16,25 +16,40 @@ pub async fn init_db(database_url: &str) -> Result<Pool<Sqlite>> {
         .connect(database_url)
         .await?;
 
-    // Run migrations
-    run_migrations(&pool).await?;
-
-    Ok(pool)
-}
-
-async fn run_migrations(pool: &Pool<Sqlite>) -> Result<()> {
+    // Create tables using SQLite syntax
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS branches (
             id TEXT PRIMARY KEY,
+            code TEXT UNIQUE NOT NULL,
             name TEXT NOT NULL,
             address TEXT,
             phone TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
+            email TEXT,
+            is_active INTEGER DEFAULT 1,
+            manager_id TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
         "#,
     )
-    .execute(pool)
+    .execute(&pool)
+    .await?;
+
+    // Divisions master table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS divisions (
+            id TEXT PRIMARY KEY,
+            code TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        "#,
+    )
+    .execute(&pool)
     .await?;
 
     sqlx::query(
@@ -42,17 +57,22 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<()> {
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
+            email TEXT,
             password_hash TEXT NOT NULL,
+            full_name TEXT,
             role TEXT NOT NULL,
+            division_id TEXT,
             branch_id TEXT,
-            is_active BOOLEAN DEFAULT 1,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1,
+            phone TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (division_id) REFERENCES divisions(id),
             FOREIGN KEY (branch_id) REFERENCES branches(id)
-        )
+        );
         "#,
     )
-    .execute(pool)
+    .execute(&pool)
     .await?;
 
     sqlx::query(
@@ -60,30 +80,107 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<()> {
         CREATE TABLE IF NOT EXISTS refresh_tokens (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
-            token TEXT UNIQUE NOT NULL,
-            expires_at DATETIME NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            token TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
+        );
         "#,
     )
-    .execute(pool)
+    .execute(&pool)
     .await?;
 
+    // Jobdesk Templates (master tugas per divisi)
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS jobdesk_templates (
+            id TEXT PRIMARY KEY,
+            division_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            instructions TEXT,
+            allow_photo INTEGER DEFAULT 1,
+            allow_video INTEGER DEFAULT 1,
+            allow_no_attachment INTEGER DEFAULT 1,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (division_id) REFERENCES divisions(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Jobdesk Assignments (tugas yang diassign ke karyawan)
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS jobdesk_assignments (
+            id TEXT PRIMARY KEY,
+            template_id TEXT,
+            user_id TEXT NOT NULL,
+            assigner_id TEXT NOT NULL, -- Pak Kevin atau Owner
+            branch_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            assigned_date DATE NOT NULL,
+            due_date DATE,
+            priority TEXT DEFAULT 'normal', -- low, normal, high, urgent
+            status TEXT DEFAULT 'assigned', -- assigned, submitted, under_review, approved, rejected
+            submitted_at TIMESTAMP,
+            submitted_notes TEXT,
+            has_attachments INTEGER DEFAULT 0,
+            reviewed_by TEXT, -- Pak Kevin sebagai PIC
+            reviewed_at TIMESTAMP,
+            review_notes TEXT,
+            rejection_reason TEXT,
+            FOREIGN KEY (template_id) REFERENCES jobdesk_templates(id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (assigner_id) REFERENCES users(id),
+            FOREIGN KEY (branch_id) REFERENCES branches(id),
+            FOREIGN KEY (reviewed_by) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Jobdesk Proofs (file attachments - gambar, video)
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS jobdesk_proofs (
+            id TEXT PRIMARY KEY,
+            assignment_id TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_type TEXT NOT NULL, -- image/jpeg, image/png, video/mp4, image/webp
+            file_size INTEGER NOT NULL,
+            is_converted INTEGER DEFAULT 0, -- 0 = original, 1 = converted to webp
+            original_file_id TEXT, -- reference to original file if converted
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (assignment_id) REFERENCES jobdesk_assignments(id) ON DELETE CASCADE,
+            FOREIGN KEY (original_file_id) REFERENCES jobdesk_proofs(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Password Reset OTPs
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS password_reset_otps (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
-            otp TEXT NOT NULL,
+            otp_code TEXT NOT NULL,
             expires_at DATETIME NOT NULL,
             used BOOLEAN DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
+        );
         "#,
     )
-    .execute(pool)
+    .execute(&pool)
     .await?;
 
     sqlx::query(
@@ -100,7 +197,7 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<()> {
         )
         "#,
     )
-    .execute(pool)
+    .execute(&pool)
     .await?;
 
     sqlx::query(
@@ -119,22 +216,51 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<()> {
         )
         "#,
     )
-    .execute(pool)
+    .execute(&pool)
+    .await?;
+
+    // Attendance
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS attendance (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            date DATE NOT NULL,
+            clock_in TIMESTAMP,
+            clock_out TIMESTAMP,
+            status TEXT DEFAULT 'present', -- present, absent, late, on_leave
+            location_lat REAL,
+            location_lng REAL,
+            photo_url TEXT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
     .await?;
 
     // Create index for faster lookups
     sqlx::query(
         r#"
         CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+        CREATE INDEX IF NOT EXISTS idx_users_division ON users(division_id);
+        CREATE INDEX IF NOT EXISTS idx_users_branch ON users(branch_id);
         CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
         CREATE INDEX IF NOT EXISTS idx_work_reports_user ON work_reports(user_id);
         CREATE INDEX IF NOT EXISTS idx_work_reports_branch ON work_reports(branch_id);
+        CREATE INDEX IF NOT EXISTS idx_jobdesk_user ON jobdesk_assignments(user_id);
+        CREATE INDEX IF NOT EXISTS idx_jobdesk_branch ON jobdesk_assignments(branch_id);
+        CREATE INDEX IF NOT EXISTS idx_jobdesk_status ON jobdesk_assignments(status);
+        CREATE INDEX IF NOT EXISTS idx_jobdesk_proofs_assignment ON jobdesk_proofs(assignment_id);
+        CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(date);
         "#,
     )
-    .execute(pool)
+    .execute(&pool)
     .await?;
 
-    Ok(())
+    Ok(pool)
 }
 
 pub async fn seed_data(pool: &Pool<Sqlite>) -> Result<()> {
@@ -173,11 +299,12 @@ pub async fn seed_data(pool: &Pool<Sqlite>) -> Result<()> {
         let id = Uuid::new_v4().to_string();
         sqlx::query(
             r#"
-            INSERT INTO branches (id, name, address, phone)
-            VALUES (?1, ?2, ?3, ?4)
+            INSERT INTO branches (id, code, name, address, phone)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
         )
         .bind(&id)
+        .bind(format!("BR-{}", id.split('-').next().unwrap()))
         .bind(*name)
         .bind(format!("Alamat {}, Jawa Barat", name))
         .bind("022-1234567")
@@ -216,9 +343,13 @@ pub async fn seed_data(pool: &Pool<Sqlite>) -> Result<()> {
     ];
 
     let mut user_ids = Vec::new();
+    let mut owner_id = String::new();
 
     for (email, role, branch_idx) in &division_accounts {
         let id = Uuid::new_v4().to_string();
+        if *role == "Owner" {
+            owner_id = id.clone();
+        }
         let bid = branch_idx.map(|i| branch_ids[i].clone());
         sqlx::query("INSERT INTO users (id, username, password_hash, role, branch_id) VALUES (?1, ?2, ?3, ?4, ?5)")
             .bind(&id)
@@ -263,8 +394,41 @@ pub async fn seed_data(pool: &Pool<Sqlite>) -> Result<()> {
                 .execute(pool).await?;
         }
     }
+    
+    // Simulate jobdesk assignments for all divisions
+    println!("Seeding jobdesk assignments for all divisions...");
+    let jobdesk_titles = vec![
+        "Laporan Stok Harian",
+        "Kunjungan Dealer",
+        "Pengecekan Unit PDI",
+        "Rekap SPK Masuk",
+        "Update Konten Sosmed",
+        "Follow Up Piutang",
+        "Cleaning Area Kerja",
+        "Cek Suhu Gudang",
+    ];
+    
+    for (user_id, branch_id, role) in &user_ids {
+        let id = Uuid::new_v4().to_string();
+        let title = jobdesk_titles[rng.gen_range(0..jobdesk_titles.len())];
+        sqlx::query(
+            r#"
+            INSERT INTO jobdesk_assignments (id, user_id, assigner_id, branch_id, title, description, assigned_date, status, priority)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'assigned', 'normal')
+            "#
+        )
+        .bind(&id)
+        .bind(user_id)
+        .bind(&owner_id) // Use the real owner_id instead of "user-owner"
+        .bind(branch_id)
+        .bind(title)
+        .bind(format!("Tugas harian untuk divisi {}", role))
+        .bind(Utc::now().naive_utc().date())
+        .execute(pool)
+        .await?;
+    }
 
-    println!("Seed data completed! (350 users, 20 division accounts)");
+    println!("Seed data completed! (350 users, 20 division accounts, jobdesk assignments)");
     Ok(())
 }
 

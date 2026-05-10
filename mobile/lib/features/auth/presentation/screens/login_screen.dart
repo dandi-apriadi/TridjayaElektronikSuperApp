@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 
@@ -31,6 +33,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
+
+    // Debug Base URL
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        final dioClient = ref.read(dioClientProvider);
+        debugPrint('🌐 Using API Base URL: ${dioClient.dio.options.baseUrl}');
+      } catch (e) {
+        debugPrint('❌ Error getting DioClient: $e');
+      }
+    });
   }
 
   @override
@@ -330,6 +342,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   String _parseError(Object error) {
+    if (error is DioException) {
+      if (error.response?.statusCode == 401) return 'Email atau password salah';
+      if (error.response?.statusCode == 429) return 'Terlalu banyak percobaan. Coba lagi nanti.';
+      if (error.error != null && error.error is String) {
+        return error.error as String;
+      }
+    }
+
     final msg = error.toString();
     if (msg.contains('401')) return 'Email atau password salah';
     if (msg.contains('429')) return 'Terlalu banyak percobaan. Coba lagi nanti.';

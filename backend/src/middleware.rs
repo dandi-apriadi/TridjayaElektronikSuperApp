@@ -1,26 +1,25 @@
 use axum::{
     extract::{Request, State},
-    http::{header, StatusCode},
+    http::header,
     middleware::Next,
     response::Response,
-    RequestPartsExt,
 };
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
 
 use crate::{
-    config::Config,
+    AppState,
     error::AppError,
     utils::decode_access_token,
 };
 
 #[derive(Clone, Debug)]
 pub struct CurrentUser {
-    pub user_id: uuid::Uuid,
+    pub user_id: String,
     pub email: String,
     pub full_name: String,
     pub role: UserRole,
-    pub branch_id: Option<uuid::Uuid>,
+    pub branch_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -30,6 +29,11 @@ pub enum UserRole {
     Admin,
     Sales,
     Driver,
+    Teknisi,
+    Gudang,
+    Kasir,
+    Marketing,
+    CS,
 }
 
 impl UserRole {
@@ -40,6 +44,11 @@ impl UserRole {
             "admin" => Some(UserRole::Admin),
             "sales" => Some(UserRole::Sales),
             "driver" => Some(UserRole::Driver),
+            "teknisi" => Some(UserRole::Teknisi),
+            "gudang" => Some(UserRole::Gudang),
+            "kasir" => Some(UserRole::Kasir),
+            "marketing" => Some(UserRole::Marketing),
+            "cs" => Some(UserRole::CS),
             _ => None,
         }
     }
@@ -51,66 +60,45 @@ impl UserRole {
             UserRole::Admin => "admin",
             UserRole::Sales => "sales",
             UserRole::Driver => "driver",
+            UserRole::Teknisi => "teknisi",
+            UserRole::Gudang => "gudang",
+            UserRole::Kasir => "kasir",
+            UserRole::Marketing => "marketing",
+            UserRole::CS => "cs",
         }
     }
 
-    /// Check if role can access resource
     pub fn has_permission(&self, required: &[UserRole]) -> bool {
         required.contains(self) || *self == UserRole::Owner
     }
 }
 
-/// RBAC Helper: Create middleware that checks for specific roles
-pub fn require_roles(roles: Vec<UserRole>) -> impl Fn(Request, Next) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Response, AppError>> + Send>> {
-    move |request: Request, next: Next| {
-        let allowed_roles = roles.clone();
-        Box::pin(async move {
-            // Extract current user from request extensions
-            let user = request.extensions().get::<CurrentUser>().cloned();
-            
-            match user {
-                Some(user) => {
-                    if user.role.has_permission(&allowed_roles) {
-                        Ok(next.run(request).await)
-                    } else {
-                        Err(AppError::Forbidden)
-                    }
-                }
-                None => Err(AppError::Unauthorized),
-            }
-        })
-    }
-}
-
+/// Auth middleware - uses State extractor, compatible with AppState (not Arc<AppState>)
+/// This version is used with from_fn_with_state in main.rs
 pub async fn auth_middleware(
-    State(pool): State<Pool<Postgres>>,
-    State(config): State<Arc<Config>>,
-    request: Request,
+    State(state): State<Arc<AppState>>,
+    mut request: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    // Extract authorization header
     let auth_header = request
         .headers()
         .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
-        .and_then(|h| h.strip_prefix("Bearer "));
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .map(|t| t.to_string());
 
     let token = match auth_header {
         Some(token) => token,
-        None => {
-            return Err(AppError::Unauthorized);
-        }
+        None => return Err(AppError::Unauthorized),
     };
 
-    // Decode and validate token
-    let claims = decode_access_token(token, &config)?;
+    let claims = decode_access_token(&token, &state.config)?;
 
-    // Check if user still exists and is active (PostgreSQL query)
-    let user: Option<(uuid::Uuid, String, String, Option<uuid::Uuid>)> = sqlx::query_as(
-        "SELECT id, email, full_name, branch_id FROM users WHERE id = $1 AND status = 'active'"
+    let user: Option<(String, String, String, Option<String>)> = sqlx::query_as(
+        "SELECT id, username as email, username as full_name, branch_id FROM users WHERE id = ?1 AND is_active = 1"
     )
     .bind(&claims.sub)
-    .fetch_optional(&pool)
+    .fetch_optional(&state.pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
@@ -119,18 +107,93 @@ pub async fn auth_middleware(
         None => return Err(AppError::Unauthorized),
     };
 
-    // Parse role
-    let role = UserRole::from_str(&claims.role)
-        .ok_or(AppError::Unauthorized)?;
+    let role = UserRole::from_str(&claims.role).ok_or(AppError::Unauthorized)?;
 
-    // Add user info to request extensions for handlers to access
-    let mut request = request;
     request.extensions_mut().insert(CurrentUser {
         user_id,
         email,
         full_name,
         role,
         branch_id,
+    });
+
+    Ok(next.run(request).await)
+}
+
+/// Stateless auth middleware - for use with from_fn (no State extractor)
+/// Reads state from request extensions (injected by with_state)
+pub async fn auth_middleware_stateless(
+    mut request: Request,
+    next: Next,
+) -> Result<Response, AppError> {
+    // Extract AppState from the extensions (populated by axum's with_state)
+    let state = request
+        .extensions()
+        .get::<AppState>()
+        .cloned();
+
+    // If state not found in extensions, try reading it differently
+    // For stateless middleware, we need to validate token without DB (JWT only)
+    let auth_header = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .map(|t| t.to_string());
+
+    let token = match auth_header {
+        Some(token) => token,
+        None => return Err(AppError::Unauthorized),
+    };
+
+    // We need the config for JWT verification. Since we don't have State,
+    // we load it from environment directly (same values as Config::from_env)
+    let jwt_secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "te_superapp_secret_key_2024_very_long_and_secure".to_string());
+
+    // Manually decode JWT
+    use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Claims {
+        sub: String,
+        username: String,
+        role: String,
+        branch_id: Option<String>,
+        exp: usize,
+    }
+
+    let token_data = decode::<Claims>(
+        &token,
+        &DecodingKey::from_secret(jwt_secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    ).map_err(|_| AppError::Unauthorized)?;
+
+    let claims = token_data.claims;
+    let role = UserRole::from_str(&claims.role).ok_or(AppError::Unauthorized)?;
+
+    // If we have state available, verify user is still active in DB
+    if let Some(state) = state {
+        let user: Option<(String, String, String, Option<String>)> = sqlx::query_as(
+            "SELECT id, username as email, username as full_name, branch_id FROM users WHERE id = ?1 AND is_active = 1"
+        )
+        .bind(&claims.sub)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|e| AppError::Database(e))?;
+
+        if user.is_none() {
+            return Err(AppError::Unauthorized);
+        }
+    }
+
+    request.extensions_mut().insert(CurrentUser {
+        user_id: claims.sub,
+        email: claims.username.clone(),
+        full_name: claims.username,
+        role,
+        branch_id: claims.branch_id,
     });
 
     Ok(next.run(request).await)

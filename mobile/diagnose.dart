@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 // Test imports dari app_router
-import 'lib/core/router/app_router.dart';
+import './lib/core/router/app_router.dart';
 
 void main() {
   print('Imports successful!');

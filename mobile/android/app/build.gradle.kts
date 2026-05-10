@@ -7,8 +7,8 @@ plugins {
 
 android {
     namespace = "com.example.te_superapp"
-    // Using stable API 36
-    compileSdk = 36
+    // Using stable API 34
+    compileSdk = 34
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -24,7 +24,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
     }

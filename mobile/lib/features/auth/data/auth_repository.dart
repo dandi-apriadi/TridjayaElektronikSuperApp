@@ -19,23 +19,37 @@ class AuthRepository {
   AuthRepository(this._dio);
 
   Future<UserModel> login(String username, String password) async {
-    final response = await _dio.post(
-      ApiEndpoints.login,
-      data: {'username': username, 'password': password},
-    );
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.login,
+        data: {'username': username, 'password': password},
+      );
 
-    final accessToken = response.data['access_token'] as String;
-    final refreshToken = response.data['refresh_token'] as String;
+      if (response.data == null) {
+        throw Exception('Server mengembalikan respon kosong');
+      }
 
-    await _storage.write(key: AppConstants.accessTokenKey, value: accessToken);
-    await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
+      final accessToken = response.data['access_token'] as String?;
+      final refreshToken = response.data['refresh_token'] as String?;
 
-    final user = _parseUserFromToken(accessToken);
-    await _storage.write(
-      key: AppConstants.userDataKey,
-      value: jsonEncode(user.toJson()),
-    );
-    return user;
+      if (accessToken == null || refreshToken == null) {
+        throw Exception('Format respon server tidak valid (missing tokens)');
+      }
+
+      await _storage.write(key: AppConstants.accessTokenKey, value: accessToken);
+      await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
+
+      final user = _parseUserFromToken(accessToken);
+      await _storage.write(
+        key: AppConstants.userDataKey,
+        value: jsonEncode(user.toJson()),
+      );
+      return user;
+    } on DioException {
+      rethrow;
+    } catch (e) {
+      throw Exception('Gagal memproses data login: $e');
+    }
   }
 
   Future<void> logout() async {
@@ -80,35 +94,46 @@ class AuthRepository {
   }
 
   UserModel _parseUserFromToken(String token) {
-    final claims = JwtDecoder.decode(token);
-    final roleStr = claims['role'] as String;
-    final role = UserRole.values.firstWhere(
-      (r) => r.name == _normalizeRole(roleStr),
-      orElse: () => UserRole.admin,
-    );
-    return UserModel(
-      id: claims['sub'] as String,
-      username: claims['username'] as String? ?? '',
-      role: role,
-      branchId: claims['branch_id'] as String?,
-      branchName: claims['branch_name'] as String?,
-    );
+    try {
+      final claims = JwtDecoder.decode(token);
+      final roleStr = claims['role'] as String? ?? 'Admin';
+      final role = UserRole.values.firstWhere(
+        (r) => r.name == _normalizeRole(roleStr),
+        orElse: () => UserRole.admin,
+      );
+      return UserModel(
+        id: claims['sub']?.toString() ?? claims['id']?.toString() ?? '0',
+        username: claims['username'] as String? ?? claims['email'] as String? ?? '',
+        email: claims['email'] as String? ?? claims['username'] as String? ?? '',
+        fullName: claims['full_name'] as String? ?? claims['username'] as String? ?? 'User',
+        role: role,
+        branchId: claims['branch_id']?.toString(),
+        branchName: claims['branch_name'] as String?,
+      );
+    } catch (e) {
+      throw Exception('Gagal mendecode token user: $e');
+    }
   }
 
   String _normalizeRole(String raw) {
-    switch (raw) {
-      case 'Owner':
+    final normalized = raw.trim().toLowerCase();
+    switch (normalized) {
+      case 'superadmin':
+      case 'super_admin':
+        return 'superAdmin';
+      case 'owner':
         return 'owner';
-      case 'Kepala_Cabang':
+      case 'kepalacabang':
+      case 'kepala_cabang':
         return 'kepalaCabang';
-      case 'Admin':
+      case 'admin':
         return 'admin';
-      case 'Sales':
+      case 'sales':
         return 'sales';
-      case 'Driver':
+      case 'driver':
         return 'driver';
       default:
-        return raw.toLowerCase();
+        return normalized;
     }
   }
 }

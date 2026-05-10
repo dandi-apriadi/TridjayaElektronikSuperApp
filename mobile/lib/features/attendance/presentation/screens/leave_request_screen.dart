@@ -659,7 +659,7 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Icon(Icons.check, size: 16, color: AppColors.success),
+                      const Icon(Icons.check_circle, size: 16, color: AppColors.success),
                       const SizedBox(width: 8),
                       Text(
                         'Disetujui oleh: ${leave['approvedBy']}',
