@@ -48,10 +48,18 @@ extension UserRoleExtension on UserRole {
 class UserModel with _$UserModel {
   const factory UserModel({
     required String id,
-    required String username,
+    required String email,
+    required String fullName,
     required UserRole role,
-    String? branchId,
-    String? branchName,
+    @JsonKey(name: 'branch_id') String? branchId,
+    @JsonKey(name: 'branch_name') String? branchName,
+    String? phone,
+    String? department,
+    String? position,
+    @JsonKey(name: 'profile_photo_url') String? profilePhotoUrl,
+    @JsonKey(name: 'employee_id') String? employeeId,
+    @JsonKey(name: 'last_login_at') DateTime? lastLoginAt,
+    @JsonKey(name: 'created_at') DateTime? createdAt,
   }) = _UserModel;
 
   factory UserModel.fromJson(Map<String, dynamic> json) =>

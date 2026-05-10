@@ -29,7 +29,7 @@ import '../../features/kepala_cabang/presentation/screens/task_list_screen.dart'
 import '../../features/driver/presentation/screens/driver_dashboard_screen.dart';
 import '../../shared/screens/task_screen.dart';
 import '../../shared/screens/work_report_screen.dart';
-import '../../shared/screens/attendance_screen.dart';
+import '../../features/attendance/presentation/screens/leave_request_screen.dart';
 import '../../shared/screens/notification_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/notification/presentation/screens/notification_center_screen.dart';

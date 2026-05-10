@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../shared/widgets/app_scaffold.dart';
-import '../../work/models/work_report_models.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_scaffold.dart';
+import '../../models/work_report_models.dart';
 
 /// ============================================================
 /// 📋 WORK REPORT LIST SCREEN
@@ -56,7 +56,7 @@ class _WorkReportListScreenState extends ConsumerState<WorkReportListScreen> {
         branchName: 'Cabang Pusat',
         role: 'Sales',
         content: 'Mengikuti training produk baru dari tim marketing. Membuat laporan penjualan mingguan.',
-        status: WorkReportStatus.pending,
+        status: WorkReportStatus.submitted,
         reportDate: now,
         createdAt: now,
       ),
@@ -251,7 +251,8 @@ class _WorkReportListScreenState extends ConsumerState<WorkReportListScreen> {
         statusColor = AppColors.success;
         statusIcon = Icons.verified;
         break;
-      case WorkReportStatus.pending:
+      case WorkReportStatus.submitted:
+      case WorkReportStatus.underReview:
         statusColor = AppColors.warning;
         statusIcon = Icons.pending;
         break;

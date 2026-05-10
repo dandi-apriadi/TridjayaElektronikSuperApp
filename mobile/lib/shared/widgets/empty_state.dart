@@ -71,12 +71,12 @@ class ErrorState extends StatelessWidget {
                 color: Color(0xFFFEE8E8),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline_rounded, size: 40, color: AppColors.error),
+              child: const Icon(Icons.error_outline_rounded, size: 40, color: Colors.red),
             ),
             const SizedBox(height: 16),
-            const Text('Terjadi Kesalahan', style: AppTextStyles.subtitle),
+            const Text('Terjadi Kesalahan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(message, style: AppTextStyles.caption, textAlign: TextAlign.center),
+            Text(message, style: const TextStyle(fontSize: 14), textAlign: TextAlign.center),
             if (onRetry != null) ...[
               const SizedBox(height: 20),
               ElevatedButton.icon(

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../jobdesk/models/jobdesk_models.dart';
-import '../../jobdesk/data/jobdesk_dummy_data.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../models/jobdesk_models.dart';
+import '../../data/jobdesk_dummy_data.dart';
 
 /// ============================================================
 /// 👔 PIC VERIFICATION DASHBOARD

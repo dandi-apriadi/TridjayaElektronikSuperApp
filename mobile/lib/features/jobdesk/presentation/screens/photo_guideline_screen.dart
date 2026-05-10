@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 
 /// ============================================================
 /// 📸 PHOTO GUIDELINE SCREEN
@@ -165,9 +165,9 @@ class _PhotoGuidelineScreenState extends ConsumerState<PhotoGuidelineScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.checklist, color: AppColors.primary),
+          Row(
+            children: const [
+              Icon(Icons.checklist, color: Color(0xFF6B8EEF)),
               SizedBox(width: 8),
               Text(
                 'Standar Foto Wajib',
@@ -187,7 +187,7 @@ class _PhotoGuidelineScreenState extends ConsumerState<PhotoGuidelineScreen> {
               onPressed: () => setState(() => _showFullGuidelines = !_showFullGuidelines),
               child: Text(
                 _showFullGuidelines ? 'Sembunyikan' : 'Lihat semua ${guidelines.length} panduan',
-                style: const TextStyle(color: AppColors.primary),
+                style: TextStyle(color: AppColors.primary),
               ),
             ),
         ],

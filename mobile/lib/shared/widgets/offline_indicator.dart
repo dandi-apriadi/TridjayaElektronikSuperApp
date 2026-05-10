@@ -26,8 +26,8 @@ class _OfflineIndicatorState extends State<OfflineIndicator> {
     _updateConnectionStatus(result);
   }
 
-  void _updateConnectionStatus(ConnectivityResult result) {
-    final isOffline = result == ConnectivityResult.none;
+  void _updateConnectionStatus(List<ConnectivityResult> result) {
+    final isOffline = result.contains(ConnectivityResult.none) || result.isEmpty;
     if (mounted) {
       setState(() {
         _isOffline = isOffline;
@@ -102,15 +102,15 @@ class OfflineAwareWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<ConnectivityResult>(
+    return StreamBuilder<List<ConnectivityResult>>(
       stream: Connectivity().onConnectivityChanged,
-      initialData: ConnectivityResult.mobile,
+      initialData: const [ConnectivityResult.mobile],
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting && loading != null) {
           return loading!;
         }
 
-        final isOffline = snapshot.data == ConnectivityResult.none;
+        final isOffline = snapshot.data?.contains(ConnectivityResult.none) ?? false;
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           child: isOffline ? offline : online,

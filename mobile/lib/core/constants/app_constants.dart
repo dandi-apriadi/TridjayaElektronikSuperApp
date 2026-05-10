@@ -14,7 +14,7 @@ class AppConstants {
   static const int maxOtpAttemptsPerHour = 3;
   static const int maxLoginAttemptsPerWindow = 5;
 
-  static const int whatsappMaxMessagesPerMinute = 20;
+  // Note: WhatsApp Gateway moved to Web only (see web app)
   static const int maxFileUploadsPerMinute = 10;
   static const int maxPdfExportsPerMinute = 5;
 

@@ -105,6 +105,9 @@ backend/*.db-wal
 logs/
 log/
 
+# Exception: Allow SQL migrations
+!backend/migrations/*.sql
+
 # ============================================
 # Build & Dependencies
 # ============================================

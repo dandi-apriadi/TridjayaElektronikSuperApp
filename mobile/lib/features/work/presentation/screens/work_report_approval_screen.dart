@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../features/shared/widgets/app_scaffold.dart';
-import '../../work/models/work_report_models.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_scaffold.dart';
+import '../../models/work_report_models.dart';
 
 /// ============================================================
 /// ✅ WORK REPORT APPROVAL SCREEN
@@ -499,7 +499,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
         role: 'Sales',
         content: 'Hari ini berhasil melakukan kunjungan ke 5 toko di area Bahu. Mendapatkan 2 prospek baru yang potensial. Melakukan follow-up pada 3 calon konsumen existing.',
         photoUrls: ['https://picsum.photos/400/300', 'https://picsum.photos/400/301'],
-        status: WorkReportStatus.pending,
+        status: WorkReportStatus.submitted,
         reportDate: now.subtract(const Duration(days: 1)),
         createdAt: now.subtract(const Duration(days: 1)),
       ),
@@ -511,7 +511,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
         branchName: 'Sam Ratulangi',
         role: 'Driver',
         content: 'Mengantar 8 pesanan hari ini dengan jarak total 45 km. Semua pengiriman tepat waktu dan tidak ada kendala. Melakukan perawatan rutin kendaraan sore ini.',
-        status: WorkReportStatus.pending,
+        status: WorkReportStatus.submitted,
         reportDate: now.subtract(const Duration(days: 1)),
         createdAt: now.subtract(const Duration(days: 1)),
       ),
@@ -524,7 +524,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
         role: 'Admin',
         content: 'Melakukan stock opname pagi dan sore. Input 25 transaksi hari ini. Membuat laporan penjualan harian dan mengirim ke pusat. Tidak ada masalah dengan kas.',
         photoUrls: ['https://picsum.photos/400/302'],
-        status: WorkReportStatus.pending,
+        status: WorkReportStatus.submitted,
         reportDate: now,
         createdAt: now,
       ),
@@ -692,7 +692,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                   const SizedBox(height: 24),
                   
                   // Action buttons for pending reports
-                  if (report.status == WorkReportStatus.pending) ...[
+                  if (report.status == WorkReportStatus.submitted) ...[
                     Row(
                       children: [
                         Expanded(
