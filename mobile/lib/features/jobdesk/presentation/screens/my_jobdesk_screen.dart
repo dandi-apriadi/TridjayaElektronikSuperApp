@@ -31,9 +31,20 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
   @override
   void initState() {
     super.initState();
-    // TODO: Get actual user role from auth provider
-    _template = JobDeskDummyData.supportOnlineTemplate;
+    // Default, will be updated in build based on user role
+    _template = JobDeskDummyData.salesTemplate;
     _todaySubmissions = JobDeskDummyData.getDummySubmissionsForToday(_template);
+  }
+
+  void _updateTemplateForRole(String role) {
+    final normalizedRole = role.toLowerCase().replaceAll(' ', '_');
+    final newTemplate = JobDeskDummyData.getTemplateByRole(normalizedRole);
+    if (newTemplate.id != _template.id) {
+      setState(() {
+        _template = newTemplate;
+        _todaySubmissions = JobDeskDummyData.getDummySubmissionsForToday(_template);
+      });
+    }
   }
 
   // TODO: Get actual user ID from auth provider
