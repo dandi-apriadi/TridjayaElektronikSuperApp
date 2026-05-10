@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// ============================================================
 /// ❓ HELP & SUPPORT SCREEN
@@ -16,6 +17,36 @@ class HelpSupportScreen extends ConsumerStatefulWidget {
 
 class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
   final _searchController = TextEditingController();
+
+  Future<void> _launchWhatsApp() async {
+    final Uri url = Uri.parse('https://wa.me/6285161542103?text=Halo%20Admin%20Tridjaya,%20saya%20butuh%20bantuan...');
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch WhatsApp');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membuka WhatsApp. Pastikan aplikasi terinstal.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _launchEmail() async {
+    final Uri url = Uri.parse('mailto:dandimamonto.tridjaya03@gmail.com?subject=Bantuan%20Tridjaya%20SuperApp&body=Halo%20Admin,%0A%0ASaya%20mengalami%20kendala%20pada...');
+    try {
+      if (!await launchUrl(url)) {
+        throw Exception('Could not launch Email');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membuka aplikasi Email.')),
+        );
+      }
+    }
+  }
   
   final List<FAQItem> _faqs = [
     FAQItem(
@@ -117,19 +148,15 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
             title: 'WhatsApp Support',
             subtitle: 'Respon cepat via WhatsApp',
             color: const Color(0xFF25D366),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Menghubungkan ke WhatsApp...')),
-              );
-            },
+            onTap: _launchWhatsApp,
           ),
           const SizedBox(height: 12),
           _buildContactCard(
             icon: Icons.email_outlined,
             title: 'Email Support',
-            subtitle: 'support@tridjaya.co.id',
+            subtitle: 'dandimamonto.tridjaya03@gmail.com',
             color: AppColors.info,
-            onTap: () {},
+            onTap: _launchEmail,
           ),
 
           const SizedBox(height: 40),
