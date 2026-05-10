@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/models/leave_request_model.dart';
+import '../../../../shared/providers/leave_request_provider.dart';
 import '../../data/jobdesk_dummy_data.dart';
 import '../../models/jobdesk_models.dart';
 
@@ -25,7 +27,7 @@ class MyJobDeskScreen extends ConsumerStatefulWidget {
 class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
   late JobDeskTemplate _template;
   late List<JobDeskSubmission> _todaySubmissions;
-  
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +35,9 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
     _template = JobDeskDummyData.supportOnlineTemplate;
     _todaySubmissions = JobDeskDummyData.getDummySubmissionsForToday(_template);
   }
+
+  // TODO: Get actual user ID from auth provider
+  String get _currentUserId => 'emp001';
   
   int get _completedCount => _todaySubmissions.where((s) => s.isCompleted || s.isVerified).length;
   int get _pendingCount => _todaySubmissions.where((s) => s.isPending).length;
@@ -42,6 +47,10 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch for active leave today
+    final activeLeave = ref.watch(activeLeaveTodayProvider(_currentUserId));
+    final hasActiveLeave = activeLeave != null;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -67,30 +76,44 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
         color: AppColors.primary,
         child: CustomScrollView(
           slivers: [
-            // Progress Header
-            SliverToBoxAdapter(
-              child: _buildProgressHeader(),
-            ),
-            
-            // Filter Chips
-            SliverToBoxAdapter(
-              child: _buildFilterChips(),
-            ),
-            
-            // Task List
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final submission = _todaySubmissions[index];
-                    return _buildTaskCard(submission);
-                  },
-                  childCount: _todaySubmissions.length,
+            // Show Leave Banner if has active leave
+            if (hasActiveLeave)
+              SliverToBoxAdapter(
+                child: _buildLeaveBanner(activeLeave),
+              ),
+
+            // Progress Header (only show if no active leave)
+            if (!hasActiveLeave)
+              SliverToBoxAdapter(
+                child: _buildProgressHeader(),
+              ),
+
+            // Filter Chips (only show if no active leave)
+            if (!hasActiveLeave)
+              SliverToBoxAdapter(
+                child: _buildFilterChips(),
+              ),
+
+            // Show "No Tasks" message if has active leave
+            if (hasActiveLeave)
+              SliverToBoxAdapter(
+                child: _buildNoTasksMessage(activeLeave),
+              )
+            else
+              // Task List
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final submission = _todaySubmissions[index];
+                      return _buildTaskCard(submission);
+                    },
+                    childCount: _todaySubmissions.length,
+                  ),
                 ),
               ),
-            ),
-            
+
             // Bottom spacing
             const SliverToBoxAdapter(
               child: SizedBox(height: 100),
@@ -98,7 +121,8 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
           ],
         ),
       ),
-      floatingActionButton: _pendingCount > 0
+      // Hide FAB if has active leave
+      floatingActionButton: !hasActiveLeave && _pendingCount > 0
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/jobdesk/today'),
               backgroundColor: AppColors.primary,
@@ -296,6 +320,157 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
         ),
       ),
     );
+  }
+
+  /// Build leave banner when user has approved leave today
+  Widget _buildLeaveBanner(LeaveRequest leave) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: leave.type.color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: leave.type.color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: leave.type.color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _getLeaveIcon(leave.type),
+              color: leave.type.color,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Izin ${leave.type.displayName} Aktif',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: leave.type.color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${leave.startDate.day}/${leave.startDate.month}/${leave.startDate.year} - '
+                  '${leave.endDate.day}/${leave.endDate.month}/${leave.endDate.year}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                if (leave.reason != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Alasan: ${leave.reason}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textHint,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build no tasks message when user has approved leave
+  Widget _buildNoTasksMessage(LeaveRequest leave) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: leave.type.color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.beach_access,
+              size: 64,
+              color: leave.type.color,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Libur Hari Ini 🎉',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Pengajuan ${leave.type.displayName} Anda telah disetujui oleh ${leave.approverName}.\n'
+            'Tidak perlu melakukan Job Desk hari ini.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle, size: 16, color: AppColors.success),
+                const SizedBox(width: 6),
+                Text(
+                  'Disetujui',
+                  style: TextStyle(
+                    color: AppColors.success,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getLeaveIcon(LeaveType type) {
+    switch (type) {
+      case LeaveType.off:
+        return Icons.weekend;
+      case LeaveType.sakit:
+        return Icons.local_hospital;
+      case LeaveType.izin:
+        return Icons.assignment_ind;
+      case LeaveType.cuti:
+        return Icons.beach_access;
+    }
   }
   
   Widget _buildTaskCard(JobDeskSubmission submission) {

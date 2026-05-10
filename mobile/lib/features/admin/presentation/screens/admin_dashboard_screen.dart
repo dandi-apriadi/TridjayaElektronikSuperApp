@@ -69,16 +69,20 @@ class AdminDashboardScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Expanded(child: GradientStatCard(title: 'Total Stok', value: '${inv.akiStock + inv.tvStock + inv.hpStock}', icon: Icons.inventory_2_outlined, gradient: AppColors.adminGradient)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: 'Stok Rendah', value: '${inv.lowStockCount}', icon: Icons.warning_amber_outlined, color: AppColors.error, onTap: () => context.go('/admin/inventory'))),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: GradientStatCard(title: 'Total Stok', value: '${inv.akiStock + inv.tvStock + inv.hpStock}', icon: Icons.inventory_2_outlined, gradient: AppColors.adminGradient)),
+                      const SizedBox(width: 12),
+                      Expanded(child: StatCard(title: 'Stok Rendah', value: '${inv.lowStockCount}', icon: Icons.warning_amber_outlined, color: AppColors.error, onTap: () => context.go('/admin/inventory'))),
                   ]),
                   const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: StatCard(title: 'Tugas Pending', value: '$pendingCount', icon: Icons.task_outlined, color: AppColors.warning)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: 'Pergerakan Hari Ini', value: '3', icon: Icons.swap_vert_rounded, color: AppColors.info)),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: StatCard(title: 'Tugas Pending', value: '$pendingCount', icon: Icons.task_outlined, color: AppColors.warning)),
+                      const SizedBox(width: 12),
+                      Expanded(child: StatCard(title: 'Pergerakan Hari Ini', value: '3', icon: Icons.swap_vert_rounded, color: AppColors.info)),
                   ]),
                   const SizedBox(height: 20),
                   _buildStockOverview(inv, context),

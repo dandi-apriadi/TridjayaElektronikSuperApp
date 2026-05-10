@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/models/user_model.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../providers/leave_request_provider.dart';
+import 'notification_settings_screen.dart';
+import 'penalty_screen.dart';
+import 'personal_info_screen.dart';
+import 'security_settings_screen.dart';
+import 'help_support_screen.dart';
+import 'leave_request_dialog.dart';
+import 'leave_history_screen.dart';
+import 'leave_approval_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -13,31 +23,156 @@ class ProfileScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     if (user == null) return const SizedBox.shrink();
 
-    final color = _roleColor(user.role.displayName);
+    final color = _roleColor(user.role);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 220,
-            pinned: true,
-            elevation: 0,
-            backgroundColor: color,
-            systemOverlayStyle: SystemUiOverlayStyle.light,
-            flexibleSpace: FlexibleSpaceBar(
-              background: _buildHeader(user.username, user.role.displayName, user.branchName, color),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildProfileHeader(user.username, user.role, user.branchName ?? 'N/A', color),
+              const SizedBox(height: 20),
+              _buildStatsRow(context),
+              const SizedBox(height: 20),
+              _buildQuickActionsSection(context, color, user.role, user.id),
+              const SizedBox(height: 20),
+              _buildSettingsSection(context, ref, color),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(String name, UserRole role, String branch, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withOpacity(0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+              ),
+              child: Center(child: Text(name.substring(0, 1).toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700))),
+            ),
+            const SizedBox(width: 16),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                  child: Text(role.displayName, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              Row(children: [
+                const Icon(Icons.store_outlined, color: Colors.white70, size: 14),
+                const SizedBox(width: 4),
+                Text(branch, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              ]),
+            ])),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.task_alt,
+            value: '12',
+            label: 'Task Selesai',
+            color: AppColors.success,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.pending_actions,
+            value: '3',
+            label: 'Menunggu',
+            color: AppColors.warning,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.star,
+            value: '95%',
+            label: 'Performa',
+            color: AppColors.primary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppShadows.sm,
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: color,
             ),
           ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(children: [
-                _buildInfoSection(user.username, user.role.displayName, user.branchName ?? '-', color),
-                const SizedBox(height: 16),
-                _buildSettingsSection(context, ref, color),
-                const SizedBox(height: 40),
-              ]),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textHint,
             ),
           ),
         ],
@@ -45,130 +180,231 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(String name, String role, String? branch, Color color) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color, color.withOpacity(0.7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  Widget _buildQuickActionsSection(BuildContext context, Color color, UserRole role, String userId) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Menu Cepat',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
         ),
-      ),
-      child: Stack(children: [
-        Positioned(top: -30, right: -30,
-          child: Container(width: 160, height: 160,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.06)))),
-        Positioned(bottom: -20, left: -20,
-          child: Container(width: 100, height: 100,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.04)))),
-        SafeArea(child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 60, 20, 24),
-          child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-            Container(
-              width: 80, height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 3),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 5))],
-              ),
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Center(
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: color),
-                    ),
-                  ),
+        const SizedBox(height: 12),
+        // Row 1: Notifikasi & Denda
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickActionCard(
+                icon: Icons.notifications_active,
+                title: 'Notifikasi',
+                subtitle: 'Pengingat Task',
+                color: AppColors.info,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationSettingsScreen()),
                 ),
               ),
             ),
-            const SizedBox(height: 14),
-            Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white)),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-              child: Text(role, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildQuickActionCard(
+                icon: Icons.warning_amber,
+                title: 'Denda',
+                subtitle: 'Lihat Pelanggaran',
+                color: AppColors.error,
+                badge: '2',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PenaltyScreen()),
+                ),
+              ),
             ),
-            if (branch != null) ...[
-              const SizedBox(height: 6),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.store_outlined, color: Colors.white70, size: 14),
-                const SizedBox(width: 4),
-                Text(branch, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-              ]),
-            ],
-          ]),
-        )),
-      ]),
-    );
-  }
-
-  Widget _buildInfoSection(String username, String role, String branch, Color color) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.sm,
-      ),
-      child: Column(children: [
-        _infoTile(Icons.person_outline_rounded, 'Username', username, color),
-        const Divider(height: 1, indent: 62, endIndent: 16),
-        _infoTile(Icons.badge_outlined, 'Role', role, color),
-        const Divider(height: 1, indent: 62, endIndent: 16),
-        _infoTile(Icons.store_outlined, 'Cabang', branch, color),
-      ]),
-    );
-  }
-
-  Widget _infoTile(IconData icon, String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(children: [
-        Container(
-          width: 38, height: 38,
-          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 18, color: color),
+          ],
         ),
-        const SizedBox(width: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: AppTextStyles.caption),
-          Text(value, style: AppTextStyles.bodyMedium),
-        ]),
-      ]),
+        const SizedBox(height: 12),
+        // Row 2: Pengajuan OFF/Sakit & Persetujuan (untuk Kepala Cabang/PIC)
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickActionCard(
+                icon: Icons.event_busy,
+                title: 'OFF / Sakit',
+                subtitle: 'Ajukan Izin',
+                color: AppColors.warning,
+                onTap: () => _showLeaveRequestDialog(context, userId),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Tombol Persetujuan hanya untuk Kepala Cabang/PIC/Owner
+            if (role.canApproveLeave)
+              Expanded(
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final pendingCount = ref.watch(pendingApprovalsCountProvider);
+                    return _buildQuickActionCard(
+                      icon: Icons.fact_check,
+                      title: 'Persetujuan',
+                      subtitle: 'Menunggu: $pendingCount',
+                      color: AppColors.success,
+                      badge: pendingCount > 0 ? pendingCount.toString() : null,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LeaveApprovalScreen()),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              Expanded(
+                child: _buildQuickActionCard(
+                  icon: Icons.history,
+                  title: 'Riwayat',
+                  subtitle: 'Pengajuan Saya',
+                  color: AppColors.primary,
+                  onTap: () => _showMyLeaveHistory(context, userId),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    String? badge,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppShadows.sm,
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                if (badge != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      badge,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textHint,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildSettingsSection(BuildContext context, WidgetRef ref, Color color) {
-    final items = [
-      (Icons.notifications_outlined, 'Notifikasi', 'Kelola preferensi notifikasi', AppColors.info,
-          () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pengaturan Notifikasi — Coming Soon'), behavior: SnackBarBehavior.floating))),
-      (Icons.lock_outline_rounded, 'Ubah Password', 'Ganti password akun Anda', AppColors.warning,
-          () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ubah Password — Coming Soon'), behavior: SnackBarBehavior.floating))),
-      (Icons.help_outline_rounded, 'Bantuan', 'Panduan penggunaan aplikasi', AppColors.success,
-          () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bantuan — Coming Soon'), behavior: SnackBarBehavior.floating))),
-    ];
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.sm,
-      ),
-      child: Column(children: [
-        ...items.asMap().entries.map((e) {
-          final i = e.key;
-          final item = e.value;
-          return Column(children: [
-            _settingsTile(item.$1, item.$2, item.$3, item.$4, item.$5),
-            if (i < items.length - 1) const Divider(height: 1, indent: 62, endIndent: 16),
-          ]);
-        }),
-        const Divider(height: 1, indent: 16, endIndent: 16),
-        _logoutTile(context, ref),
-      ]),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Pengaturan',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: AppShadows.sm,
+          ),
+          child: Column(children: [
+            _settingsTile(
+              Icons.person_outline,
+              'Informasi Pribadi',
+              'Nama, email, no. telepon',
+              color,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PersonalInfoScreen()),
+              ),
+            ),
+            const Divider(height: 1, indent: 72, endIndent: 16),
+            _settingsTile(
+              Icons.lock_outline,
+              'Keamanan',
+              'Ubah password, PIN, biometric',
+              AppColors.warning,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SecuritySettingsScreen()),
+              ),
+            ),
+            const Divider(height: 1, indent: 72, endIndent: 16),
+            _settingsTile(
+              Icons.help_outline,
+              'Bantuan & Dukungan',
+              'Pusat bantuan, hubungi kami',
+              AppColors.success,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HelpSupportScreen()),
+              ),
+            ),
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            _logoutTile(context, ref),
+          ]),
+        ),
+      ],
     );
   }
 
@@ -177,19 +413,20 @@ class ProfileScreen extends ConsumerWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(children: [
           Container(
-            width: 38, height: 38,
+            width: 40, height: 40,
             decoration: BoxDecoration(color: iconColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 18, color: iconColor),
+            child: Icon(icon, size: 20, color: iconColor),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: AppTextStyles.bodyMedium),
+            const SizedBox(height: 2),
             Text(subtitle, style: AppTextStyles.caption),
           ])),
-          const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppColors.textHint),
+          const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppColors.textHint),
         ]),
       ),
     );
@@ -200,16 +437,17 @@ class ProfileScreen extends ConsumerWidget {
       onTap: () => _confirmLogout(context, ref),
       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(children: [
           Container(
-            width: 38, height: 38,
-            decoration: BoxDecoration(color: AppColors.errorBg, borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.logout_rounded, size: 18, color: AppColors.error),
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.logout_rounded, size: 20, color: AppColors.error),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Logout', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.error)),
+            Text('Logout', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.error, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
             Text('Keluar dari akun', style: AppTextStyles.caption),
           ])),
         ]),
@@ -238,13 +476,33 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Color _roleColor(String role) {
+  Color _roleColor(UserRole role) {
     switch (role) {
-      case 'Owner': return AppColors.ownerColor;
-      case 'Kepala Cabang': return AppColors.kepalaCabangColor;
-      case 'Admin': return AppColors.adminColor;
-      case 'Sales': return AppColors.salesColor;
+      case UserRole.owner: return AppColors.ownerColor;
+      case UserRole.kepalaCabang: return AppColors.kepalaCabangColor;
+      case UserRole.admin: return AppColors.adminColor;
+      case UserRole.sales: return AppColors.salesColor;
       default: return AppColors.driverColor;
     }
+  }
+
+  /// Show leave request submission dialog
+  void _showLeaveRequestDialog(BuildContext context, String userId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => LeaveRequestDialog(employeeId: userId),
+    );
+  }
+
+  /// Show user's leave history
+  void _showMyLeaveHistory(BuildContext context, String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LeaveHistoryScreen(employeeId: userId),
+      ),
+    );
   }
 }

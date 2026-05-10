@@ -144,6 +144,7 @@ pub async fn seed_data(pool: &Pool<Sqlite>) -> Result<()> {
     // Create users for all roles
     let users = vec![
         ("owner", "123456", UserRole::Owner, None::<String>),
+        ("pak_iwan", "123456", UserRole::KepalaCabang, Some(branch_id.clone())),
         ("kepala_cabang", "123456", UserRole::KepalaCabang, Some(cabang_id.clone())),
         ("admin", "123456", UserRole::Admin, Some(branch_id.clone())),
         ("sales1", "123456", UserRole::Sales, Some(cabang_id.clone())),

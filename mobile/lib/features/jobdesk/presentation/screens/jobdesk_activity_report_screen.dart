@@ -66,10 +66,15 @@ class _JobDeskActivityReportScreenState extends ConsumerState<JobDeskActivityRep
     switch (widget.userRole) {
       case UserRole.owner:
       case UserRole.superAdmin:
-      case UserRole.kepalaCabang: // PIC sees all but mainly focused on verification
+        // Owner and SuperAdmin can see all branches
         return JobDeskActivityDummyData.branches;
       case UserRole.kepalaCabang:
-        // Kepala Cabang only sees their own branch
+        // If it's a specific PIC identified by picId, they might see all
+        // But for now, Kepala Cabang sees their own branch
+        // Note: Pak Iwan (PIC) uses Kepala Cabang role at Kantor Pusat
+        if (widget.branchId == 'branch_001') { // Assume Kantor Pusat is the hub
+           return JobDeskActivityDummyData.branches;
+        }
         return JobDeskActivityDummyData.branches
             .where((b) => b['id'] == widget.branchId)
             .toList();
@@ -259,41 +264,49 @@ class _JobDeskActivityReportScreenState extends ConsumerState<JobDeskActivityRep
   }
 
   Widget _buildOverviewCards(DailyJobDeskReport report) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.4,
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
       children: [
-        _buildStatCard(
-          title: 'Total Karyawan',
-          value: '${report.totalEmployees}',
-          subtitle: 'Aktif hari ini',
-          icon: Icons.people_alt_outlined,
-          color: AppColors.primary,
+        SizedBox(
+          width: (MediaQuery.of(context).size.width - 44) / 2,
+          child: _buildStatCard(
+            title: 'Total Karyawan',
+            value: '${report.totalEmployees}',
+            subtitle: 'Aktif hari ini',
+            icon: Icons.people_alt_outlined,
+            color: AppColors.primary,
+          ),
         ),
-        _buildStatCard(
-          title: 'Task Selesai',
-          value: '${report.completedTasks}',
-          subtitle: 'dari ${report.totalTasks} task',
-          icon: Icons.check_circle_outlined,
-          color: AppColors.success,
+        SizedBox(
+          width: (MediaQuery.of(context).size.width - 44) / 2,
+          child: _buildStatCard(
+            title: 'Task Selesai',
+            value: '${report.completedTasks}',
+            subtitle: 'dari ${report.totalTasks} task',
+            icon: Icons.check_circle_outlined,
+            color: AppColors.success,
+          ),
         ),
-        _buildStatCard(
-          title: 'Completion Rate',
-          value: '${report.overallCompletionRate.toStringAsFixed(1)}%',
-          subtitle: 'Rata-rata harian',
-          icon: Icons.trending_up_outlined,
-          color: AppColors.warning,
+        SizedBox(
+          width: (MediaQuery.of(context).size.width - 44) / 2,
+          child: _buildStatCard(
+            title: 'Completion Rate',
+            value: '${report.overallCompletionRate.toStringAsFixed(1)}%',
+            subtitle: 'Rata-rata harian',
+            icon: Icons.trending_up_outlined,
+            color: AppColors.warning,
+          ),
         ),
-        _buildStatCard(
-          title: 'Terverifikasi',
-          value: '${report.verifiedTasks}',
-          subtitle: 'Sudah dinilai PIC',
-          icon: Icons.verified_outlined,
-          color: AppColors.info,
+        SizedBox(
+          width: (MediaQuery.of(context).size.width - 44) / 2,
+          child: _buildStatCard(
+            title: 'Terverifikasi',
+            value: '${report.verifiedTasks}',
+            subtitle: 'Sudah dinilai PIC',
+            icon: Icons.verified_outlined,
+            color: AppColors.info,
+          ),
         ),
       ],
     );
@@ -306,60 +319,73 @@ class _JobDeskActivityReportScreenState extends ConsumerState<JobDeskActivityRep
     required IconData icon,
     required Color color,
   }) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: 120,
+        maxHeight: 140,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Icon at top right
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color, size: 20),
               ),
-            ],
-          ),
-          Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
             ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
+            // Content at bottom
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    title,
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-          SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.textHint,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

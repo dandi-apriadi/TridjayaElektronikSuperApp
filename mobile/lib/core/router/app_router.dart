@@ -23,6 +23,7 @@ import '../../shared/screens/notification_screen.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import '../../features/jobdesk/presentation/screens/my_jobdesk_screen.dart';
 import '../../features/jobdesk/presentation/screens/jobdesk_template_list_screen.dart';
+import '../../features/jobdesk/presentation/screens/jobdesk_template_edit_screen.dart';
 import '../../features/jobdesk/presentation/screens/jobdesk_monitoring_screen.dart';
 import '../../features/jobdesk/presentation/screens/pic_dashboard_screen.dart';
 import '../../features/jobdesk/presentation/screens/photo_review_screen.dart';
@@ -165,6 +166,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/jobdesk/templates',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const JobDeskTemplateListScreen()),
+      ),
+      GoRoute(
+        path: '/jobdesk/templates/edit/:id',
+        builder: (_, state) => AppScaffold(
+          currentRoute: state.matchedLocation,
+          child: JobDeskTemplateEditScreen(templateId: state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
+        path: '/jobdesk/templates/create',
+        builder: (_, state) => const AppScaffold(
+          currentRoute: '/jobdesk/templates/create',
+          child: JobDeskTemplateEditScreen(),
+        ),
       ),
       GoRoute(
         path: '/jobdesk/monitoring',

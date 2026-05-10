@@ -344,18 +344,7 @@ class _WorkReportScreenState extends ConsumerState<WorkReportScreen>
               ),
             ),
             const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lampirkan foto — Coming Soon'), behavior: SnackBarBehavior.floating)),
-              child: Container(
-                height: 60, width: double.infinity,
-                decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.attach_file_rounded, color: AppColors.textHint),
-                  const SizedBox(width: 8),
-                  Text('Lampirkan Foto/Dokumen', style: AppTextStyles.caption),
-                ]),
-              ),
-            ),
+            _buildPhotoAttachmentSection(context),
           ]),
         ),
         actions: [
@@ -368,6 +357,71 @@ class _WorkReportScreenState extends ConsumerState<WorkReportScreen>
             child: const Text('Kirim'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoAttachmentSection(BuildContext context) {
+    return InkWell(
+      onTap: () => _showImageSourceDialog(context),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 60,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add_photo_alternate_outlined, color: AppColors.textHint),
+            const SizedBox(width: 8),
+            Text('Lampirkan foto', style: AppTextStyles.caption),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showImageSourceDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+              title: const Text('Kamera'),
+              subtitle: const Text('Ambil foto baru'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Membuka kamera...'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: AppColors.success),
+              title: const Text('Galeri'),
+              subtitle: const Text('Pilih dari galeri'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Membuka galeri...'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

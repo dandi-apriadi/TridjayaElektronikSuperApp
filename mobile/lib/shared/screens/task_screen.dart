@@ -271,22 +271,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
             const SizedBox(height: 20),
             Text('Bukti Penyelesaian', style: AppTextStyles.subtitle),
             const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pilih foto — Coming Soon'), behavior: SnackBarBehavior.floating)),
-              child: Container(
-                height: 90, width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border, style: BorderStyle.solid),
-                ),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.add_photo_alternate_outlined, color: AppColors.textHint, size: 28),
-                  const SizedBox(height: 6),
-                  Text('Lampirkan Foto Bukti', style: AppTextStyles.caption),
-                ]),
-              ),
-            ),
+            _buildPhotoUploadSection(context),
             const SizedBox(height: 24),
             if (task.status != 'Completed')
               ElevatedButton.icon(
@@ -369,6 +354,73 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
             child: const Text('Buat'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoUploadSection(BuildContext context) {
+    return InkWell(
+      onTap: () => _showImageSourceDialog(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 100,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border, style: BorderStyle.solid),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add_photo_alternate_outlined, color: AppColors.textHint, size: 32),
+            const SizedBox(height: 8),
+            Text('Tap untuk upload foto bukti', style: AppTextStyles.caption),
+            const SizedBox(height: 4),
+            Text('Maksimal 5 foto', style: TextStyle(fontSize: 11, color: AppColors.textHint)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showImageSourceDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+              title: const Text('Kamera'),
+              subtitle: const Text('Ambil foto baru'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Membuka kamera...'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: AppColors.success),
+              title: const Text('Galeri'),
+              subtitle: const Text('Pilih dari galeri'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Membuka galeri...'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

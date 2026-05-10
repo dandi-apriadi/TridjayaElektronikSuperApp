@@ -213,30 +213,35 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
         },
       ),
       const SizedBox(height: 12),
-      Row(children: [
-        Expanded(child: GradientStatCard(
-          title: 'Pendapatan', value: revStr,
-          icon: Icons.trending_up_rounded, gradient: AppColors.ownerGradient,
-        )),
-        const SizedBox(width: 12),
-        Expanded(child: StatCard(
-          title: 'Penjualan', value: '$sales unit',
-          icon: Icons.shopping_bag_outlined, color: AppColors.success,
-        )),
-      ]),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: GradientStatCard(
+            title: 'Pendapatan', value: revStr,
+            icon: Icons.trending_up_rounded, gradient: AppColors.ownerGradient,
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: StatCard(
+            title: 'Penjualan', value: '$sales unit',
+            icon: Icons.shopping_bag_outlined, color: AppColors.success,
+          )),
+        ]
+      ),
       const SizedBox(height: 12),
-      Row(children: [
-        Expanded(child: StatCard(
-          title: 'Karyawan Hadir', value: '24',
-          subtitle: 'dari 28 total',
-          icon: Icons.people_outline_rounded, color: AppColors.info,
-        )),
-        const SizedBox(width: 12),
-        Expanded(child: StatCard(
-          title: 'Stok Rendah', value: '$lowStock item',
-          subtitle: 'Perlu restock',
-          icon: Icons.warning_amber_outlined, color: AppColors.error,
-          onTap: () {
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: StatCard(
+            title: 'Karyawan Hadir', value: '24',
+            subtitle: 'dari 28 total',
+            icon: Icons.people_outline_rounded, color: AppColors.info,
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: StatCard(
+            title: 'Stok Rendah', value: '$lowStock item',
+            subtitle: 'Perlu restock',
+            icon: Icons.warning_amber_outlined, color: AppColors.error,
+            onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('⚠️ $lowStock item stok rendah - Segera lakukan restock!'),

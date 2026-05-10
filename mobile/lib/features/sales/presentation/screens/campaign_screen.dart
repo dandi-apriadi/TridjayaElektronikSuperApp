@@ -160,8 +160,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
           Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             if (c.status == 'draft')
               OutlinedButton.icon(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Edit kampanye — Coming Soon'), behavior: SnackBarBehavior.floating)),
+                onPressed: () => _showEditCampaignDialog(context, c),
                 icon: const Icon(Icons.edit_outlined, size: 14),
                 label: const Text('Edit'),
                 style: OutlinedButton.styleFrom(
@@ -290,8 +289,8 @@ class _CampaignScreenState extends State<CampaignScreen> {
                 border: Border.all(color: AppColors.info.withOpacity(0.25)),
               ),
               child: Row(children: [
-                const Icon(Icons.info_outline, color: AppColors.info, size: 16),
-                const SizedBox(width: 8),
+                Icon(Icons.info_outline, color: AppColors.info, size: 16),
+                SizedBox(width: 8),
                 Expanded(child: Text('Hanya prospek dari cabang Anda yang dapat dipilih sebagai penerima.', style: AppTextStyles.caption)),
               ]),
             ),
@@ -329,6 +328,98 @@ class _CampaignScreenState extends State<CampaignScreen> {
             const SizedBox(height: 8),
           ]),
         ),
+      ),
+    );
+  }
+
+  void _showEditCampaignDialog(BuildContext context, _Campaign campaign) {
+    final nameController = TextEditingController(text: campaign.name);
+    final selectedDateController = TextEditingController(text: campaign.scheduledDate);
+    String selectedTemplate = 'Promo Aki Murah';
+    String selectedGroup = 'Semua Pelanggan';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Kampanye'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nama Kampanye',
+                  prefixIcon: Icon(Icons.campaign_outlined),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Template Pesan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: selectedTemplate,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.message_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                items: ['Promo Aki Murah', 'Diskon 50%', 'Info Produk Baru', 'Reminder Service']
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (value) => selectedTemplate = value!,
+              ),
+              const SizedBox(height: 16),
+              const Text('Grup Target', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: selectedGroup,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.people_outline),
+                  border: OutlineInputBorder(),
+                ),
+                items: ['Semua Pelanggan', 'Pelanggan Aktif', 'Pelanggan Baru', 'VIP']
+                    .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                    .toList(),
+                onChanged: (value) => selectedGroup = value!,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: selectedDateController,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Jadwal Kirim',
+                  prefixIcon: Icon(Icons.calendar_today_outlined),
+                  suffixIcon: Icon(Icons.edit_calendar),
+                ),
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Membuka kalender...')),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Kampanye berhasil diperbarui'),
+                  backgroundColor: AppColors.success,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.salesColor),
+            child: const Text('Simpan'),
+          ),
+        ],
       ),
     );
   }

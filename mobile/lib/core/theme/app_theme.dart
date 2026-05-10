@@ -49,6 +49,8 @@ class AppColors {
   static const Color salesLight = Color(0xFFFFEDD5);
   static const Color driverColor = Color(0xFF0F766E);
   static const Color driverLight = Color(0xFFCCFBF1);
+  static const Color supportColor = Color(0xFF0284C7);
+  static const Color supportLight = Color(0xFFE0F2FE);
 
   // Gradients
   static const List<Color> ownerGradient = [Color(0xFF7C3AED), Color(0xFF4F46E5)];

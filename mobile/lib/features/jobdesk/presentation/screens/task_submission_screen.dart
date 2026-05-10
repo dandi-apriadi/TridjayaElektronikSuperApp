@@ -42,6 +42,7 @@ class _TaskSubmissionScreenState extends ConsumerState<TaskSubmissionScreen> {
   bool _isCompleted = false;
   
   // Dummy data - in real app would be fetched from provider
+  late JobDeskTaskItem _task;
   late JobDeskSubmission _submission;
 
   @override
@@ -54,12 +55,26 @@ class _TaskSubmissionScreenState extends ConsumerState<TaskSubmissionScreen> {
     try {
       debugPrint('TaskSubmissionScreen: Loading task data for taskId=${widget.taskId}');
       
+      // Initialize dummy task based on taskId or just a generic one
+      _task = JobDeskTaskItem(
+        id: widget.taskId,
+        taskName: 'Post Video TikTok Harian',
+        description: 'Upload video edukasi produk minimal 1 video per hari di akun TikTok cabang.',
+        type: JobDeskTaskType.link,
+        requiresProof: true,
+        proofType: JobDeskProofType.link,
+        isMandatory: true,
+        isHighlighted: true,
+        helpText: 'Masukkan link video yang sudah dipublish.',
+      );
+
       _submission = JobDeskSubmission(
         id: widget.submissionId ?? 'new',
         assignmentId: 'assign_001',
         taskItemId: widget.taskId,
         submissionDate: DateTime.now(),
         status: JobDeskStatus.pending,
+        taskItem: _task,
       );
       
       debugPrint('TaskSubmissionScreen: Task loaded successfully: ${_task.taskName}');

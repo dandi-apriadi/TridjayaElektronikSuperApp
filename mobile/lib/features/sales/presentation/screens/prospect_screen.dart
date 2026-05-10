@@ -192,8 +192,7 @@ class _ProspectScreenState extends State<ProspectScreen> {
             const SizedBox(height: 8),
             Row(mainAxisSize: MainAxisSize.min, children: [
               GestureDetector(
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Hubungi — Coming Soon'), behavior: SnackBarBehavior.floating)),
+                onTap: () => _showContactOptions(context, p),
                 child: Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
@@ -303,6 +302,90 @@ class _ProspectScreenState extends State<ProspectScreen> {
 
   void _showEditProspect(BuildContext context, DummyProspect p) {
     _showAddProspectSheet(context, prospect: p);
+  }
+
+  void _showContactOptions(BuildContext context, DummyProspect p) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    'Hubungi ${p.name}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    p.phone,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.phone, color: AppColors.success),
+              title: const Text('Telepon'),
+              subtitle: const Text('Hubungi via panggilan telepon'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Menelepon ${p.phone}...'), behavior: SnackBarBehavior.floating),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.message, color: AppColors.info),
+              title: const Text('SMS'),
+              subtitle: const Text('Kirim pesan SMS'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Membuka aplikasi SMS...'), behavior: SnackBarBehavior.floating),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.chat_bubble, color: Color(0xFF25D366)),
+              title: const Text('WhatsApp'),
+              subtitle: const Text('Chat via WhatsApp'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Membuka WhatsApp...'), behavior: SnackBarBehavior.floating),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.content_copy, color: AppColors.textHint),
+              title: const Text('Salin Nomor'),
+              subtitle: const Text('Salin nomor ke clipboard'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Nomor telepon disalin'),
+                    backgroundColor: AppColors.success,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showAddProspectSheet(BuildContext context, {DummyProspect? prospect}) {

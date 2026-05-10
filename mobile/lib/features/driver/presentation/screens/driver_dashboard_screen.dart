@@ -206,8 +206,7 @@ class DriverDashboardScreen extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Update Status — Coming Soon'), behavior: SnackBarBehavior.floating)),
+                  onPressed: () => _showUpdateStatusDialog(context, delivery),
                   icon: const Icon(Icons.check_rounded, size: 16),
                   label: const Text('Selesai'),
                   style: ElevatedButton.styleFrom(
@@ -222,6 +221,106 @@ class DriverDashboardScreen extends ConsumerWidget {
           ]),
         ])),
       ]),
+    );
+  }
+
+  void _showUpdateStatusDialog(BuildContext context, dynamic delivery) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update Status Pengiriman'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Kiriman: ${delivery.item}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 16),
+            const Text('Pilih status baru:', style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 12),
+            _buildStatusOption(
+              ctx,
+              'Dalam Perjalanan',
+              Icons.local_shipping,
+              Colors.blue,
+              delivery,
+            ),
+            _buildStatusOption(
+              ctx,
+              'Tiba di Tujuan',
+              Icons.location_on,
+              Colors.orange,
+              delivery,
+            ),
+            _buildStatusOption(
+              ctx,
+              'Selesai',
+              Icons.check_circle,
+              AppColors.success,
+              delivery,
+            ),
+            _buildStatusOption(
+              ctx,
+              'Gagal',
+              Icons.cancel,
+              AppColors.error,
+              delivery,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusOption(
+    BuildContext context,
+    String status,
+    IconData icon,
+    Color color,
+    dynamic delivery,
+  ) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Status diupdate: $status'),
+            backgroundColor: color,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Text(
+              status,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
