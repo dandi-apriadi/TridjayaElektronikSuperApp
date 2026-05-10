@@ -86,12 +86,49 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<()> {
     .execute(pool)
     .await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS work_reports (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            branch_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (branch_id) REFERENCES branches(id)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS leave_requests (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            branch_id TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (branch_id) REFERENCES branches(id)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
     // Create index for faster lookups
     sqlx::query(
         r#"
         CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
         CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
-        CREATE INDEX IF NOT EXISTS idx_password_reset_otps_user ON password_reset_otps(user_id);
+        CREATE INDEX IF NOT EXISTS idx_work_reports_user ON work_reports(user_id);
+        CREATE INDEX IF NOT EXISTS idx_work_reports_branch ON work_reports(branch_id);
         "#,
     )
     .execute(pool)
@@ -109,83 +146,135 @@ pub async fn seed_data(pool: &Pool<Sqlite>) -> Result<()> {
         return Ok(());
     }
 
-    println!("Seeding initial data...");
+    println!("Seeding comprehensive initial data (16 branches, 350 employees, 1 year simulation)...");
 
-    // Create main branch
-    let branch_id = Uuid::new_v4().to_string();
-    sqlx::query(
-        r#"
-        INSERT INTO branches (id, name, address, phone)
-        VALUES (?1, ?2, ?3, ?4)
-        "#,
-    )
-    .bind(&branch_id)
-    .bind("Kantor Pusat")
-    .bind("Jl. Sudirman No. 123, Jakarta")
-    .bind("021-1234567")
-    .execute(pool)
-    .await?;
-
-    // Create cabang branch
-    let cabang_id = Uuid::new_v4().to_string();
-    sqlx::query(
-        r#"
-        INSERT INTO branches (id, name, address, phone)
-        VALUES (?1, ?2, ?3, ?4)
-        "#,
-    )
-    .bind(&cabang_id)
-    .bind("Cabang Bandung")
-    .bind("Jl. Dago No. 45, Bandung")
-    .bind("022-7654321")
-    .execute(pool)
-    .await?;
-
-    // Create users for all roles
-    let users = vec![
-        ("owner", "123456", UserRole::Owner, None::<String>),
-        ("pak_iwan", "123456", UserRole::KepalaCabang, Some(branch_id.clone())),
-        ("kepala_cabang", "123456", UserRole::KepalaCabang, Some(cabang_id.clone())),
-        ("admin", "123456", UserRole::Admin, Some(branch_id.clone())),
-        ("sales1", "123456", UserRole::Sales, Some(cabang_id.clone())),
-        ("sales2", "123456", UserRole::Sales, Some(branch_id.clone())),
-        ("driver1", "123456", UserRole::Driver, Some(cabang_id.clone())),
-        ("driver2", "123456", UserRole::Driver, Some(branch_id.clone())),
+    let branch_names = vec![
+        "Tridjaya Elektronik Sam Ratulangi",
+        "Tridjaya Elektronik Bahu",
+        "Tridjaya Elektronik Pamanukan",
+        "Tridjaya Elektronik Pagaden",
+        "Tridjaya Elektronik Patokbeusi",
+        "Tridjaya Elektronik Haurgeulis",
+        "Tridjaya Elektronik Cimalaka",
+        "Tridjaya Elektronik Cikampek",
+        "Tridjaya Elektronik Cibaduyut",
+        "Tridjaya Elektronik Arjasari",
+        "Tridjaya Elektronik Subang Kota",
+        "Tridjaya Elektronik Purwakarta",
+        "Tridjaya Elektronik Sumedang Kota",
+        "Tridjaya Elektronik Karawang",
+        "Tridjaya Elektronik Indramayu Kota",
+        "Tridjaya Elektronik Bandung Main",
     ];
 
-    for (username, password, role, branch) in users {
-        let password_hash = hash(password, DEFAULT_COST)?;
-        let user_id = Uuid::new_v4().to_string();
-        let now = Utc::now();
+    let mut branch_ids = Vec::new();
 
+    for name in &branch_names {
+        let id = Uuid::new_v4().to_string();
         sqlx::query(
             r#"
-            INSERT INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            INSERT INTO branches (id, name, address, phone)
+            VALUES (?1, ?2, ?3, ?4)
             "#,
         )
-        .bind(&user_id)
-        .bind(username)
-        .bind(&password_hash)
-        .bind(role.as_str())
-        .bind(&branch)
-        .bind(true)
-        .bind(&now)
-        .bind(&now)
+        .bind(&id)
+        .bind(*name)
+        .bind(format!("Alamat {}, Jawa Barat", name))
+        .bind("022-1234567")
         .execute(pool)
         .await?;
+        branch_ids.push(id);
     }
 
-    println!("Seed data completed!");
-    println!("\nDefault users created:");
-    println!("  - owner / 123456 (Owner)");
-    println!("  - kepala_cabang / 123456 (Kepala Cabang)");
-    println!("  - admin / 123456 (Admin)");
-    println!("  - sales1 / 123456 (Sales - Cabang Bandung)");
-    println!("  - sales2 / 123456 (Sales - Kantor Pusat)");
-    println!("  - driver1 / 123456 (Driver - Cabang Bandung)");
-    println!("  - driver2 / 123456 (Driver - Kantor Pusat)");
+    // Special Users
+    let password_hash = hash("123456", DEFAULT_COST)?;
+    
+    // Owner
+    sqlx::query("INSERT INTO users (id, username, password_hash, role, branch_id) VALUES (?1, ?2, ?3, ?4, ?5)")
+        .bind(Uuid::new_v4().to_string())
+        .bind("owner")
+        .bind(&password_hash)
+        .bind(UserRole::Owner.as_str())
+        .bind(None::<String>)
+        .execute(pool).await?;
 
+    // PIC Pak Iwan at Sam Ratulangi (Branch index 0)
+    sqlx::query("INSERT INTO users (id, username, password_hash, role, branch_id) VALUES (?1, ?2, ?3, ?4, ?5)")
+        .bind(Uuid::new_v4().to_string())
+        .bind("pak_iwan")
+        .bind(&password_hash)
+        .bind(UserRole::KepalaCabang.as_str())
+        .bind(Some(&branch_ids[0]))
+        .execute(pool).await?;
+
+    // Generate 348 more users to reach 350
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let roles = vec![UserRole::Sales, UserRole::Driver, UserRole::Admin, UserRole::KepalaCabang];
+    
+    let mut user_ids = Vec::new();
+
+    for i in 1..=348 {
+        let username = format!("user_{:03}", i);
+        let role = &roles[rng.gen_range(0..roles.len())];
+        let branch_id = &branch_ids[rng.gen_range(0..branch_ids.len())];
+        let id = Uuid::new_v4().to_string();
+
+        sqlx::query("INSERT INTO users (id, username, password_hash, role, branch_id) VALUES (?1, ?2, ?3, ?4, ?5)")
+            .bind(&id)
+            .bind(&username)
+            .bind(&password_hash)
+            .bind(role.as_str())
+            .bind(Some(branch_id))
+            .execute(pool).await?;
+        
+        user_ids.push((id, branch_id.clone(), role.clone()));
+    }
+
+    // Simulate 1 year of data (last 365 days)
+    println!("Generating 1 year simulation data (this may take a few seconds)...");
+    use chrono::Duration;
+    let now = Utc::now();
+
+    for (user_id, branch_id, role) in user_ids.iter().take(100) { // Limit to 100 users for simulation to avoid huge DB
+        for d in 0..30 { // Simulate 30 random days in the last year for each user
+            let days_ago = rng.gen_range(1..365);
+            let date = now - Duration::days(days_ago);
+            
+            let status = if rng.gen_bool(0.8) { "approved" } else { "pending" };
+            let content = match role {
+                UserRole::Sales => "Melakukan kunjungan ke prospek konsumen dan follow up pembiayaan.",
+                UserRole::Driver => "Pengiriman unit ke alamat konsumen dan pengecekan STNK.",
+                UserRole::Admin => "Input data harian dan rekonsiliasi kas cabang.",
+                _ => "Supervisi operasional harian cabang.",
+            };
+
+            sqlx::query("INSERT INTO work_reports (id, user_id, branch_id, content, status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
+                .bind(Uuid::new_v4().to_string())
+                .bind(user_id)
+                .bind(branch_id)
+                .bind(content)
+                .bind(status)
+                .bind(date)
+                .execute(pool).await?;
+            
+            // Randomly add leave requests
+            if rng.gen_bool(0.05) {
+                sqlx::query("INSERT INTO leave_requests (id, user_id, branch_id, reason, start_date, end_date, status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+                    .bind(Uuid::new_v4().to_string())
+                    .bind(user_id)
+                    .bind(branch_id)
+                    .bind("Izin kepentingan keluarga")
+                    .bind(date.date_naive())
+                    .bind((date + Duration::days(1)).date_naive())
+                    .bind("approved")
+                    .bind(date)
+                    .execute(pool).await?;
+            }
+        }
+    }
+
+    println!("Comprehensive seed data completed!");
     Ok(())
 }
 

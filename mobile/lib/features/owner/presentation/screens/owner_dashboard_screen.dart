@@ -77,6 +77,13 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/owner/ai-chat'),
+        backgroundColor: AppColors.ownerColor,
+        label: const Text('Tanya AI', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        icon: const Icon(Icons.auto_awesome, color: Colors.white),
+        elevation: 8,
+      ),
     );
   }
 

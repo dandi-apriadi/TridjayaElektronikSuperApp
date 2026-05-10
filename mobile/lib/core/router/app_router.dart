@@ -8,6 +8,7 @@ import '../../features/auth/presentation/screens/password_reset_screen.dart';
 import '../../features/owner/presentation/screens/owner_dashboard_screen.dart';
 import '../../features/owner/presentation/screens/performance_screen.dart';
 import '../../features/owner/presentation/screens/branch_detail_screen.dart';
+import '../../features/owner/presentation/screens/owner_ai_chat_screen.dart';
 import '../../features/kepala_cabang/presentation/screens/kepala_cabang_dashboard_screen.dart';
 import '../../features/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/screens/inventory_screen.dart';
@@ -65,6 +66,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           currentRoute: state.matchedLocation,
           child: BranchDetailScreen(branchId: state.pathParameters['id']!),
         ),
+      ),
+      GoRoute(
+        path: '/owner/ai-chat',
+        builder: (_, state) => const OwnerAiChatScreen(),
       ),
       GoRoute(
         path: '/owner/reports',

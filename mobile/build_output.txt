@@ -1,0 +1,2 @@
+Running Gradle task 'assembleDebug'...                             10.7s
+Gradle build failed to produce an .apk file. It's likely that this file was generated under C:\Users\acer\Desktop\Project\RUST\TE SuperApp\mobile\build, but the tool couldn't find it.
