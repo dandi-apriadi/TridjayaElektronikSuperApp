@@ -29,9 +29,14 @@ import '../../features/kepala_cabang/presentation/screens/task_list_screen.dart'
 import '../../features/driver/presentation/screens/driver_dashboard_screen.dart';
 import '../../shared/screens/task_screen.dart';
 import '../../shared/screens/work_report_screen.dart';
-import '../../shared/screens/profile_screen.dart';
+import '../../shared/screens/attendance_screen.dart';
 import '../../shared/screens/notification_screen.dart';
-import '../../features/attendance/presentation/screens/leave_request_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/notification/presentation/screens/notification_center_screen.dart';
+import '../../features/work/presentation/screens/work_report_list_screen.dart';
+import '../../features/work/presentation/screens/work_report_submission_screen.dart';
+import '../../features/work/presentation/screens/work_report_approval_screen.dart';
+import '../../shared/screens/leave_approval_screen.dart';
 import '../../features/shared/screens/payroll_screen.dart';
 import '../../features/shared/screens/settings_screen.dart';
 import '../../features/shared/screens/ai_chat_screen.dart';
@@ -396,7 +401,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // ── Shared ─────────────────────────────────────────────
       GoRoute(
         path: '/notifications',
-        builder: (_, state) => const NotificationScreen(),
+        builder: (_, state) => const NotificationCenterScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (_, state) => const ProfileScreen(),
+      ),
+      
+      // ── Work Reports (IDG) ──────────────────────────────────
+      GoRoute(
+        path: '/work-reports',
+        builder: (_, state) => const WorkReportListScreen(),
+      ),
+      GoRoute(
+        path: '/work-reports/new',
+        builder: (_, state) => const WorkReportSubmissionScreen(),
+      ),
+      GoRoute(
+        path: '/work-reports/edit/:id',
+        builder: (_, state) => WorkReportSubmissionScreen(
+          editReportId: state.pathParameters['id'],
+        ),
+      ),
+      GoRoute(
+        path: '/work-reports/approval',
+        builder: (_, state) => const WorkReportApprovalScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
