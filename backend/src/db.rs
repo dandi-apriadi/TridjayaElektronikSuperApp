@@ -241,6 +241,116 @@ pub async fn init_db(database_url: &str) -> Result<Pool<Sqlite>> {
     .execute(&pool)
     .await?;
 
+    // Inventory tables
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS inventory_items (
+            id TEXT PRIMARY KEY,
+            branch_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            sku TEXT UNIQUE,
+            unit TEXT DEFAULT 'pcs',
+            current_stock INTEGER DEFAULT 0,
+            minimum_stock INTEGER DEFAULT 10,
+            maximum_stock INTEGER DEFAULT 100,
+            price_per_unit REAL,
+            notes TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (branch_id) REFERENCES branches(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS stock_transactions (
+            id TEXT PRIMARY KEY,
+            item_id TEXT NOT NULL,
+            branch_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            type TEXT NOT NULL, -- add, remove, adjustment
+            quantity INTEGER NOT NULL,
+            old_quantity INTEGER,
+            new_quantity INTEGER,
+            reason TEXT,
+            reference_id TEXT,
+            photo_url TEXT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (item_id) REFERENCES inventory_items(id),
+            FOREIGN KEY (branch_id) REFERENCES branches(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS inventory_alerts (
+            id TEXT PRIMARY KEY,
+            item_id TEXT NOT NULL,
+            branch_id TEXT NOT NULL,
+            alert_type TEXT NOT NULL, -- low_stock, high_stock, out_of_stock
+            current_quantity INTEGER,
+            threshold INTEGER,
+            severity TEXT DEFAULT 'medium', -- low, medium, high, critical
+            is_resolved INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TIMESTAMP,
+            FOREIGN KEY (item_id) REFERENCES inventory_items(id),
+            FOREIGN KEY (branch_id) REFERENCES branches(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Notifications table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            type TEXT NOT NULL, -- jobdesk, attendance, approval, system, announcement
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            is_read INTEGER DEFAULT 0,
+            action_route TEXT,
+            action_params TEXT, -- JSON string
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Notification preferences table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS notification_preferences (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL UNIQUE,
+            enable_jobdesk INTEGER DEFAULT 1,
+            enable_attendance INTEGER DEFAULT 1,
+            enable_approval INTEGER DEFAULT 1,
+            enable_system INTEGER DEFAULT 1,
+            enable_announcement INTEGER DEFAULT 1,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
     // Create index for faster lookups
     sqlx::query(
         r#"
@@ -255,6 +365,17 @@ pub async fn init_db(database_url: &str) -> Result<Pool<Sqlite>> {
         CREATE INDEX IF NOT EXISTS idx_jobdesk_status ON jobdesk_assignments(status);
         CREATE INDEX IF NOT EXISTS idx_jobdesk_proofs_assignment ON jobdesk_proofs(assignment_id);
         CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(date);
+        CREATE INDEX IF NOT EXISTS idx_inventory_items_branch ON inventory_items(branch_id);
+        CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);
+        CREATE INDEX IF NOT EXISTS idx_stock_transactions_item ON stock_transactions(item_id);
+        CREATE INDEX IF NOT EXISTS idx_stock_transactions_branch ON stock_transactions(branch_id);
+        CREATE INDEX IF NOT EXISTS idx_stock_transactions_date ON stock_transactions(created_at);
+        CREATE INDEX IF NOT EXISTS idx_inventory_alerts_item ON inventory_alerts(item_id);
+        CREATE INDEX IF NOT EXISTS idx_inventory_alerts_status ON inventory_alerts(is_resolved);
+        CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+        CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
+        CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
+        CREATE INDEX IF NOT EXISTS idx_notification_prefs_user ON notification_preferences(user_id);
         "#,
     )
     .execute(&pool)

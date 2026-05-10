@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/theme/app_theme.dart';
 
-/// ============================================================
-/// ⏰ ATTENDANCE SCREEN - Check In/Out
-/// Screen absensi dengan face recognition & GPS
-/// ============================================================
+import '../../../../core/theme/app_theme.dart';
+import '../../models/attendance_model.dart';
+import '../providers/attendance_provider.dart';
 
 class AttendanceScreen extends ConsumerStatefulWidget {
   const AttendanceScreen({super.key});
@@ -17,376 +15,386 @@ class AttendanceScreen extends ConsumerStatefulWidget {
 }
 
 class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
-  bool _isCheckedIn = false;
   bool _isLoading = false;
-  DateTime? _checkInTime;
-  DateTime? _checkOutTime;
+  Position? _currentPosition;
+  String? _errorMessage;
 
-  // Dummy data
-  final List<Map<String, dynamic>> _history = [
-    {
-      'date': DateTime.now().subtract(const Duration(days: 1)),
-      'checkIn': DateTime.now().subtract(const Duration(days: 1)).copyWith(hour: 8, minute: 30),
-      'checkOut': DateTime.now().subtract(const Duration(days: 1)).copyWith(hour: 17, minute: 15),
-      'status': 'Hadir',
-      'late': false,
-    },
-    {
-      'date': DateTime.now().subtract(const Duration(days: 2)),
-      'checkIn': DateTime.now().subtract(const Duration(days: 2)).copyWith(hour: 8, minute: 45),
-      'checkOut': DateTime.now().subtract(const Duration(days: 2)).copyWith(hour: 17, minute: 0),
-      'status': 'Hadir',
-      'late': true,
-    },
-    {
-      'date': DateTime.now().subtract(const Duration(days: 3)),
-      'checkIn': null,
-      'checkOut': null,
-      'status': 'Izin',
-      'late': false,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentLocation();
+  }
+
+  Future<void> _loadCurrentLocation() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() {
+            _currentPosition = null;
+            _errorMessage = 'Izin lokasi belum diberikan';
+          });
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Gagal mendapatkan lokasi: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _handleCheckIn() async {
+    await _performAttendanceAction(isCheckIn: true);
+  }
+
+  Future<void> _handleCheckOut() async {
+    await _performAttendanceAction(isCheckIn: false);
+  }
+
+  Future<void> _performAttendanceAction({required bool isCheckIn}) async {
+    if (_currentPosition == null) {
+      await _loadCurrentLocation();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Menunggu lokasi GPS...')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final notifier = ref.read(attendanceNotifierProvider.notifier);
+      if (isCheckIn) {
+        final response = await notifier.checkIn(
+          latitude: _currentPosition!.latitude,
+          longitude: _currentPosition!.longitude,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        final response = await notifier.checkOut(
+          latitude: _currentPosition!.latitude,
+          longitude: _currentPosition!.longitude,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${response.message} (${response.workingHours})'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+
+      ref.invalidate(todayAttendanceProvider);
+      ref.invalidate(attendanceSummaryProvider);
+      ref.invalidate(refreshableAttendanceHistoryProvider(null));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final todayAttendance = ref.watch(todayAttendanceProvider);
+    final summary = ref.watch(attendanceSummaryProvider);
+    final history = ref.watch(refreshableAttendanceHistoryProvider(null));
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        elevation: 0,
+        title: const Text('Absensi'),
         backgroundColor: AppColors.primary,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Absensi',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Main Attendance Card
-          _buildMainCard(),
-
-          // History Section
-          Expanded(
-            child: _buildHistorySection(),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: _loadCurrentLocation,
+            icon: const Icon(Icons.refresh),
           ),
         ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(todayAttendanceProvider);
+          ref.invalidate(attendanceSummaryProvider);
+          ref.invalidate(refreshableAttendanceHistoryProvider(null));
+          await _loadCurrentLocation();
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildStatusCard(todayAttendance),
+            const SizedBox(height: 16),
+            _buildLocationCard(),
+            const SizedBox(height: 16),
+            summary.when(
+              data: _buildSummaryCard,
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => _buildMessageCard('Gagal memuat ringkasan: $error'),
+            ),
+            const SizedBox(height: 16),
+            _buildActionButtons(todayAttendance),
+            const SizedBox(height: 16),
+            _buildHistorySection(history),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMainCard() {
-    final now = DateTime.now();
-    final dateFormat = DateFormat('EEEE, dd MMMM yyyy', 'id_ID');
-    final timeFormat = DateFormat('HH:mm');
+  Widget _buildStatusCard(AsyncValue<Attendance?> todayAttendance) {
+    return todayAttendance.when(
+      data: (attendance) {
+        final isCheckedIn = attendance?.isCheckedIn ?? false;
+        final hasCheckedOut = attendance?.hasClockOut ?? false;
 
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Date
-          Text(
-            dateFormat.format(now),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.primary.withOpacity(0.85)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(20),
           ),
-          const SizedBox(height: 8),
-
-          // Time
-          StreamBuilder(
-            stream: Stream.periodic(const Duration(seconds: 1)),
-            builder: (context, snapshot) {
-              return Text(
-                timeFormat.format(DateTime.now()),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Status Hari Ini', style: TextStyle(color: Colors.white70, fontSize: 12)),
+              const SizedBox(height: 8),
+              Text(
+                isCheckedIn
+                    ? (hasCheckedOut ? 'Sudah Check Out' : 'Sedang Bekerja')
+                    : 'Belum Check In',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 48,
-                  fontWeight: FontWeight.w800,
-                  fontFamily: 'monospace',
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 24),
-
-          // Status
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _isCheckedIn ? Icons.location_on : Icons.location_off,
-                  color: Colors.white,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _isCheckedIn ? 'Sedang Bekerja' : 'Belum Check In',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Location Info
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.location_on, color: Colors.white70, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Lokasi Terdeteksi',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Tridjaya Elektronik - Cabang Utama',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.success,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.check, color: Colors.white, size: 12),
-                      SizedBox(width: 4),
-                      Text(
-                        'Dalam Radius',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Check In/Out Times
-          if (_checkInTime != null || _checkOutTime != null)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  if (_checkInTime != null)
-                    Expanded(
-                      child: _buildTimeInfo(
-                        'Check In',
-                        timeFormat.format(_checkInTime!),
-                        Icons.login,
-                      ),
-                    ),
-                  if (_checkInTime != null && _checkOutTime != null)
-                    Container(
-                      height: 40,
-                      width: 1,
-                      color: Colors.white.withOpacity(0.3),
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                  if (_checkOutTime != null)
-                    Expanded(
-                      child: _buildTimeInfo(
-                        'Check Out',
-                        timeFormat.format(_checkOutTime!),
-                        Icons.logout,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-          if (_checkInTime != null || _checkOutTime != null)
-            const SizedBox(height: 24),
-
-          // Action Button
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton.icon(
-              onPressed: _isLoading ? null : _handleAttendanceAction,
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Icon(
-                      _isCheckedIn ? Icons.logout : Icons.login,
-                      color: Colors.white,
-                    ),
-              label: Text(
-                _isLoading
-                    ? 'Memproses...'
-                    : _isCheckedIn
-                        ? 'Check Out'
-                        : 'Check In Sekarang',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+                  fontSize: 22,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isCheckedIn ? AppColors.error : Colors.white,
-                foregroundColor: _isCheckedIn ? Colors.white : AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
+              const SizedBox(height: 8),
+              Text(
+                attendance == null
+                    ? 'Belum ada absensi tercatat'
+                    : 'Status: ${attendance.statusLabel}${attendance.isLate ? ' · Terlambat' : ''}',
+                style: const TextStyle(color: Colors.white70),
               ),
-            ),
+            ],
+          ),
+        );
+      },
+      loading: () => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => _buildMessageCard('Gagal memuat status hari ini: $error'),
+    );
+  }
+
+  Widget _buildLocationCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.location_on, color: AppColors.primary),
+              const SizedBox(width: 8),
+              const Text('Lokasi Perangkat', style: TextStyle(fontWeight: FontWeight.w700)),
+              const Spacer(),
+              if (_currentPosition != null)
+                const Icon(Icons.check_circle, color: AppColors.success, size: 18),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_errorMessage != null)
+            Text(_errorMessage!, style: const TextStyle(color: AppColors.error))
+          else if (_currentPosition != null)
+            Text(
+              'Lat: ${_currentPosition!.latitude.toStringAsFixed(6)}\nLng: ${_currentPosition!.longitude.toStringAsFixed(6)}',
+              style: TextStyle(color: AppColors.textSecondary),
+            )
+          else
+            const Text('Mencari lokasi GPS...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(AttendanceSummary summary) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Ringkasan Absensi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _buildMetricTile('Hadir', summary.totalPresent.toString(), AppColors.success)),
+              const SizedBox(width: 8),
+              Expanded(child: _buildMetricTile('Terlambat', summary.totalLate.toString(), AppColors.warning)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _buildMetricTile('Izin', summary.totalLeave.toString(), AppColors.info)),
+              const SizedBox(width: 8),
+              Expanded(child: _buildMetricTile('Rate', summary.attendanceRateString, AppColors.primary)),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTimeInfo(String label, String time, IconData icon) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildMetricTile(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(color: color, fontSize: 12)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(AsyncValue<Attendance?> todayAttendance) {
+    return todayAttendance.when(
+      data: (attendance) {
+        final canCheckIn = attendance == null || !attendance.isCheckedIn;
+        final canCheckOut = attendance != null && attendance.isCheckedIn && !attendance.hasClockOut;
+
+        return Row(
           children: [
-            Icon(icon, color: Colors.white70, size: 16),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
+            Expanded(
+              child: ElevatedButton(
+                onPressed: (_isLoading || !canCheckIn) ? null : _handleCheckIn,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(_isLoading ? 'Memproses...' : 'Check In'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: (_isLoading || !canCheckOut) ? null : _handleCheckOut,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(_isLoading ? 'Memproses...' : 'Check Out'),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          time,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (error, stack) => _buildMessageCard('Gagal memuat tombol aksi: $error'),
     );
   }
 
-  Widget _buildHistorySection() {
+  Widget _buildHistorySection(AsyncValue<List<Attendance>> history) {
     return Container(
-      decoration: const BoxDecoration(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
+          const Text('Riwayat Absensi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          history.when(
+            data: (items) {
+              if (items.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('Belum ada riwayat absensi.'),
+                );
+              }
 
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                const Text(
-                  'Riwayat Absensi',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.calendar_today, size: 16),
-                  label: const Text('Filter'),
-                ),
-              ],
+              return Column(
+                children: items.map(_buildHistoryItem).toList(),
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
             ),
-          ),
-
-          // List
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _history.length,
-              itemBuilder: (context, index) {
-                return _buildHistoryItem(_history[index]);
-              },
+            error: (error, stack) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text('Gagal memuat riwayat: $error'),
             ),
           ),
         ],
@@ -394,154 +402,55 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
     );
   }
 
-  Widget _buildHistoryItem(Map<String, dynamic> item) {
-    final dateFormat = DateFormat('dd MMM', 'id_ID');
-    final dayFormat = DateFormat('EEEE', 'id_ID');
-    final timeFormat = DateFormat('HH:mm');
-
-    Color statusColor;
-    String statusText;
-
-    switch (item['status']) {
-      case 'Hadir':
-        statusColor = AppColors.success;
-        statusText = 'Hadir';
-        break;
-      case 'Izin':
-        statusColor = AppColors.warning;
-        statusText = 'Izin';
-        break;
-      case 'Sakit':
-        statusColor = AppColors.info;
-        statusText = 'Sakit';
-        break;
-      default:
-        statusColor = AppColors.error;
-        statusText = 'Alpha';
-    }
+  Widget _buildHistoryItem(Attendance attendance) {
+    final date = DateTime.tryParse(attendance.date) ?? DateTime.now();
+    final displayDate = DateFormat('dd MMM yyyy', 'id_ID').format(date);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.divider.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
       ),
       child: Row(
         children: [
-          // Date
           Container(
-            width: 60,
-            padding: const EdgeInsets.all(12),
+            width: 56,
+            height: 56,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              children: [
-                Text(
-                  dateFormat.format(item['date']),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  dayFormat.format(item['date']).substring(0, 3),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textHint,
-                  ),
-                ),
-              ],
+            child: Text(
+              DateFormat('dd').format(date),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
             ),
           ),
-
-          const SizedBox(width: 16),
-
-          // Info
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        statusText,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
-                    if (item['late'] == true) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Terlambat',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.error,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+                Text(displayDate, style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text('Status: ${attendance.statusLabel}'),
+                const SizedBox(height: 4),
+                Text(
+                  'Masuk: ${attendance.clockIn ?? '-'}  Keluar: ${attendance.clockOut ?? '-'}',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                 ),
-                if (item['checkIn'] != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.login,
-                        size: 14,
-                        color: AppColors.textHint,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        timeFormat.format(item['checkIn']),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Icon(
-                        Icons.logout,
-                        size: 14,
-                        color: AppColors.textHint,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        timeFormat.format(item['checkOut']),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                if (attendance.workingHours != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Jam kerja: ${attendance.workingHours}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.primary),
                   ),
                 ],
               ],
@@ -552,59 +461,15 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
     );
   }
 
-  Future<void> _handleAttendanceAction() async {
-    setState(() => _isLoading = true);
-
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      _isLoading = false;
-      if (_isCheckedIn) {
-        _isCheckedIn = false;
-        _checkOutTime = DateTime.now();
-      } else {
-        _isCheckedIn = true;
-        _checkInTime = DateTime.now();
-      }
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isCheckedIn
-                ? '✅ Check In berhasil! Selamat bekerja.'
-                : '✅ Check Out berhasil! Hati-hati di jalan.',
-          ),
-          backgroundColor: _isCheckedIn ? AppColors.success : AppColors.info,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-}
-
-extension DateTimeCopyWith on DateTime {
-  DateTime copyWith({
-    int? year,
-    int? month,
-    int? day,
-    int? hour,
-    int? minute,
-    int? second,
-    int? millisecond,
-    int? microsecond,
-  }) {
-    return DateTime(
-      year ?? this.year,
-      month ?? this.month,
-      day ?? this.day,
-      hour ?? this.hour,
-      minute ?? this.minute,
-      second ?? this.second,
-      millisecond ?? this.millisecond,
-      microsecond ?? this.microsecond,
+  Widget _buildMessageCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Text(message),
     );
   }
 }

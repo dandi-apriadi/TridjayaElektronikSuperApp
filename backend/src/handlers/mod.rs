@@ -3,6 +3,9 @@ pub mod owner;
 pub mod kepala_cabang;
 pub mod jobdesk;
 pub mod work_report;
+pub mod attendance;
+pub mod inventory;
+pub mod notification;
 
 use axum::{extract::State, Json};
 use serde_json::{json, Value};

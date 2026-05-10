@@ -4,41 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../models/notification_model.dart' as notif;
+import '../providers/notification_provider.dart';
 
 /// ============================================================
 /// 🔔 NOTIFICATION CENTER SCREEN
 /// Pusat Notifikasi Aplikasi
 /// ============================================================
-
-enum NotificationType {
-  jobdesk,
-  attendance,
-  approval,
-  system,
-  announcement,
-}
-
-class NotificationItem {
-  final String id;
-  final NotificationType type;
-  final String title;
-  final String message;
-  final DateTime timestamp;
-  final bool isRead;
-  final String? actionRoute;
-  final Map<String, dynamic>? actionParams;
-
-  NotificationItem({
-    required this.id,
-    required this.type,
-    required this.title,
-    required this.message,
-    required this.timestamp,
-    this.isRead = false,
-    this.actionRoute,
-    this.actionParams,
-  });
-}
 
 class NotificationCenterScreen extends ConsumerStatefulWidget {
   const NotificationCenterScreen({super.key});
@@ -51,97 +23,12 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
   String _selectedFilter = 'Semua';
   
   final List<String> _filters = ['Semua', 'Job Desk', 'Absensi', 'Approval', 'Sistem'];
-  
-  // Dummy notifications
-  List<NotificationItem> get _dummyNotifications {
-    final now = DateTime.now();
-    return [
-      NotificationItem(
-        id: 'n001',
-        type: NotificationType.approval,
-        title: 'Laporan Disetujui',
-        message: 'Laporan kerja Anda tanggal 10 Mei 2024 telah disetujui oleh Pak Hendra',
-        timestamp: now.subtract(const Duration(minutes: 5)),
-        isRead: false,
-        actionRoute: '/work-reports',
-      ),
-      NotificationItem(
-        id: 'n002',
-        type: NotificationType.jobdesk,
-        title: 'Reminder Job Desk',
-        message: 'Anda belum mengisi job desk hari ini. Deadline: 09:00 WITA',
-        timestamp: now.subtract(const Duration(hours: 2)),
-        isRead: false,
-        actionRoute: '/my-jobdesk',
-      ),
-      NotificationItem(
-        id: 'n003',
-        type: NotificationType.attendance,
-        title: 'Check-in Berhasil',
-        message: 'Anda telah check-in di Cabang Pusat pada 08:15 WITA',
-        timestamp: now.subtract(const Duration(hours: 5)),
-        isRead: true,
-      ),
-      NotificationItem(
-        id: 'n004',
-        type: NotificationType.system,
-        title: 'Pembaruan Aplikasi',
-        message: 'Versi 1.2.0 telah tersedia dengan fitur baru. Update sekarang!',
-        timestamp: now.subtract(const Duration(days: 1)),
-        isRead: true,
-      ),
-      NotificationItem(
-        id: 'n005',
-        type: NotificationType.approval,
-        title: 'Cuti Disetujui',
-        message: 'Pengajuan cuti Anda untuk tanggal 15-17 Mei telah disetujui',
-        timestamp: now.subtract(const Duration(days: 2)),
-        isRead: true,
-        actionRoute: '/leave-requests',
-      ),
-      NotificationItem(
-        id: 'n006',
-        type: NotificationType.announcement,
-        title: 'Pengumuman Penting',
-        message: 'Rapat bulanan akan diadakan pada tanggal 20 Mei 2024 pukul 09:00',
-        timestamp: now.subtract(const Duration(days: 3)),
-        isRead: true,
-        actionRoute: '/announcements',
-      ),
-      NotificationItem(
-        id: 'n007',
-        type: NotificationType.jobdesk,
-        title: 'Job Desk Terverifikasi',
-        message: 'Selamat! Semua tugas job desk Anda hari ini telah terverifikasi',
-        timestamp: now.subtract(const Duration(days: 4)),
-        isRead: true,
-      ),
-    ];
-  }
-
-  List<NotificationItem> get _filteredNotifications {
-    if (_selectedFilter == 'Semua') return _dummyNotifications;
-    
-    return _dummyNotifications.where((n) {
-      switch (_selectedFilter) {
-        case 'Job Desk':
-          return n.type == NotificationType.jobdesk;
-        case 'Absensi':
-          return n.type == NotificationType.attendance;
-        case 'Approval':
-          return n.type == NotificationType.approval;
-        case 'Sistem':
-          return n.type == NotificationType.system || n.type == NotificationType.announcement;
-        default:
-          return true;
-      }
-    }).toList();
-  }
-
-  int get _unreadCount => _dummyNotifications.where((n) => !n.isRead).length;
 
   @override
   Widget build(BuildContext context) {
+    final notificationsData = ref.watch(notificationsProvider(null));
+    final unreadCount = ref.watch(unreadCountProvider);
+    
     return AppScaffold(
       currentRoute: '/notifications',
       child: Scaffold(
@@ -160,18 +47,34 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
                   color: Colors.white,
                 ),
               ),
-              Text(
-                '$_unreadCount belum dibaca',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(0.8),
+              unreadCount.when(
+                data: (count) => Text(
+                  '$count belum dibaca',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
+                loading: () => Text(
+                  'Loading...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
+                error: (err, stack) => Text(
+                  '0 belum dibaca',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
                 ),
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: _markAllAsRead,
+              onPressed: () => _markAllAsRead(ref),
               child: const Text(
                 'Tandai Semua',
                 style: TextStyle(color: Colors.white),
@@ -186,9 +89,55 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
             
             // Notification List
             Expanded(
-              child: _filteredNotifications.isEmpty
-                  ? _buildEmptyState()
-                  : _buildNotificationList(),
+              child: notificationsData.when(
+                data: (response) {
+                  final filtered = _filterNotifications(response.notifications);
+                  if (filtered.isEmpty) {
+                    return _buildEmptyState();
+                  }
+                  return _buildNotificationList(filtered, ref);
+                },
+                loading: () => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+                error: (err, stack) => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 80,
+                        color: AppColors.error.withOpacity(0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Gagal Memuat Notifikasi',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textHint,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        err.toString(),
+                        style: TextStyle(
+                          color: AppColors.textHint,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          ref.refresh(notificationsProvider(null));
+                          ref.refresh(unreadCountProvider);
+                        },
+                        child: const Text('Coba Lagi'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -228,20 +177,20 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
     );
   }
 
-  Widget _buildNotificationList() {
+  Widget _buildNotificationList(List<notif.Notification> notifications, WidgetRef ref) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _filteredNotifications.length,
+      itemCount: notifications.length,
       itemBuilder: (context, index) {
-        final notification = _filteredNotifications[index];
-        return _buildNotificationCard(notification);
+        final notification = notifications[index];
+        return _buildNotificationCard(notification, ref);
       },
     );
   }
 
-  Widget _buildNotificationCard(NotificationItem notification) {
-    final iconData = _getIconForType(notification.type);
-    final iconColor = _getColorForType(notification.type);
+  Widget _buildNotificationCard(notif.Notification notification, WidgetRef ref) {
+    final notificationType = notification.type;
+    final iconColor = notificationType.color;
     
     return Dismissible(
       key: Key(notification.id),
@@ -256,7 +205,7 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      onDismissed: (_) => _deleteNotification(notification.id),
+      onDismissed: (_) => _deleteNotification(notification.id, ref),
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
         elevation: 0,
@@ -271,7 +220,7 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
         ),
         color: notification.isRead ? Colors.white : AppColors.primary.withOpacity(0.05),
         child: InkWell(
-          onTap: () => _handleNotificationTap(notification),
+          onTap: () => _handleNotificationTap(notification, ref),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -285,7 +234,7 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
                     color: iconColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(iconData, color: iconColor, size: 24),
+                  child: Icon(notificationType.icon, color: iconColor, size: 24),
                 ),
                 const SizedBox(width: 12),
                 
@@ -340,7 +289,7 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            _formatTimestamp(notification.timestamp),
+                            _formatTimestamp(notification.createdAt),
                             style: TextStyle(
                               fontSize: 11,
                               color: AppColors.textHint,
@@ -357,7 +306,7 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              _getTypeLabel(notification.type),
+                              notificationType.label,
                               style: TextStyle(
                                 fontSize: 10,
                                 color: iconColor,
@@ -409,51 +358,6 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
     );
   }
 
-  IconData _getIconForType(NotificationType type) {
-    switch (type) {
-      case NotificationType.jobdesk:
-        return Icons.assignment_turned_in;
-      case NotificationType.attendance:
-        return Icons.access_time;
-      case NotificationType.approval:
-        return Icons.check_circle;
-      case NotificationType.system:
-        return Icons.system_update;
-      case NotificationType.announcement:
-        return Icons.campaign;
-    }
-  }
-
-  Color _getColorForType(NotificationType type) {
-    switch (type) {
-      case NotificationType.jobdesk:
-        return Colors.blue;
-      case NotificationType.attendance:
-        return Colors.orange;
-      case NotificationType.approval:
-        return Colors.green;
-      case NotificationType.system:
-        return Colors.purple;
-      case NotificationType.announcement:
-        return Colors.red;
-    }
-  }
-
-  String _getTypeLabel(NotificationType type) {
-    switch (type) {
-      case NotificationType.jobdesk:
-        return 'Job Desk';
-      case NotificationType.attendance:
-        return 'Absensi';
-      case NotificationType.approval:
-        return 'Approval';
-      case NotificationType.system:
-        return 'Sistem';
-      case NotificationType.announcement:
-        return 'Pengumuman';
-    }
-  }
-
   String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
     final diff = now.difference(timestamp);
@@ -471,33 +375,66 @@ class _NotificationCenterScreenState extends ConsumerState<NotificationCenterScr
     }
   }
 
-  void _handleNotificationTap(NotificationItem notification) {
-    // Mark as read
-    // TODO: Update notification status in backend
+  List<notif.Notification> _filterNotifications(List<notif.Notification> notifications) {
+    if (_selectedFilter == 'Semua') return notifications;
+    
+    return notifications.where((n) {
+      switch (_selectedFilter) {
+        case 'Job Desk':
+          return n.type == notif.NotificationType.jobdesk;
+        case 'Absensi':
+          return n.type == notif.NotificationType.attendance;
+        case 'Approval':
+          return n.type == notif.NotificationType.approval;
+        case 'Sistem':
+          return n.type == notif.NotificationType.system || n.type == notif.NotificationType.announcement;
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  void _handleNotificationTap(notif.Notification notification, WidgetRef ref) async {
+    // Mark as read if not already read
+    if (!notification.isRead) {
+      await ref
+          .read(notificationNotifierProvider.notifier)
+          .markAsRead(notification.id);
+    }
     
     // Navigate if action route exists
-    if (notification.actionRoute != null) {
+    if (notification.actionRoute != null && context.mounted) {
       context.push(notification.actionRoute!);
     }
   }
 
-  void _markAllAsRead() {
-    // TODO: Mark all as read in backend
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Semua notifikasi ditandai dibaca'),
-        backgroundColor: Colors.green,
-      ),
-    );
+  void _markAllAsRead(WidgetRef ref) async {
+    await ref
+        .read(notificationNotifierProvider.notifier)
+        .markAllAsRead();
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Semua notifikasi ditandai dibaca'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
-  void _deleteNotification(String id) {
-    // TODO: Delete from backend
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Notifikasi dihapus'),
-        backgroundColor: Colors.red,
-      ),
-    );
+  void _deleteNotification(String id, WidgetRef ref) async {
+    await ref
+        .read(notificationNotifierProvider.notifier)
+        .deleteNotification(id);
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Notifikasi dihapus'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

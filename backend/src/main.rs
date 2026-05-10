@@ -88,6 +88,29 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/work-reports/:id", get(handlers::work_report::get_work_report_detail))
         .route("/api/work-reports/:id", put(handlers::work_report::update_work_report))
         .route("/api/work-reports/:id", delete(handlers::work_report::delete_work_report))
+        // Attendance routes
+        .route("/api/attendance/check-in", post(handlers::attendance::check_in))
+        .route("/api/attendance/check-out", post(handlers::attendance::check_out))
+        .route("/api/attendance/my-history", get(handlers::attendance::get_my_attendance_history))
+        .route("/api/attendance/summary", get(handlers::attendance::get_attendance_summary))
+        // Inventory routes
+        .route("/api/inventory/items", get(handlers::inventory::get_inventory_items))
+        .route("/api/inventory/items/:id", get(handlers::inventory::get_inventory_item_detail))
+        .route("/api/inventory/stock/add", post(handlers::inventory::add_stock))
+        .route("/api/inventory/stock/remove", post(handlers::inventory::remove_stock))
+        .route("/api/inventory/transactions", get(handlers::inventory::get_stock_transactions))
+        .route("/api/inventory/alerts", get(handlers::inventory::get_inventory_alerts))
+        .route("/api/inventory/stats", get(handlers::inventory::get_inventory_stats))
+        // Notification routes
+        .route("/api/notifications", get(handlers::notification::get_notifications))
+        .route("/api/notifications", delete(handlers::notification::delete_all_notifications))
+        .route("/api/notifications/create", post(handlers::notification::create_notification))
+        .route("/api/notifications/unread-count", get(handlers::notification::get_unread_count))
+        .route("/api/notifications/read-all", put(handlers::notification::mark_all_as_read))
+        .route("/api/notifications/:id/read", put(handlers::notification::mark_as_read))
+        .route("/api/notifications/:id", delete(handlers::notification::delete_notification))
+        .route("/api/notifications/preferences", get(handlers::notification::get_notification_preferences))
+        .route("/api/notifications/preferences", put(handlers::notification::update_notification_preferences))
         .layer(auth_layer);
 
     let app = Router::new()
