@@ -81,6 +81,13 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/jobdesk/upload", post(handlers::jobdesk::upload_proof))
         .route("/api/jobdesk/proofs/:id", get(handlers::jobdesk::get_proof))
         .route("/api/jobdesk/proofs/:id/convert-webp", post(handlers::jobdesk::convert_to_webp))
+        // Work Report routes - Staff
+        .route("/api/work-reports", post(handlers::work_report::create_work_report))
+        .route("/api/work-reports/my", get(handlers::work_report::get_my_work_reports))
+        .route("/api/work-reports/stats", get(handlers::work_report::get_work_report_stats))
+        .route("/api/work-reports/:id", get(handlers::work_report::get_work_report_detail))
+        .route("/api/work-reports/:id", put(handlers::work_report::update_work_report))
+        .route("/api/work-reports/:id", delete(handlers::work_report::delete_work_report))
         .layer(auth_layer);
 
     let app = Router::new()

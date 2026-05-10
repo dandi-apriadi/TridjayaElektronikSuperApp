@@ -2,6 +2,7 @@ pub mod auth;
 pub mod owner;
 pub mod kepala_cabang;
 pub mod jobdesk;
+pub mod work_report;
 
 use axum::{extract::State, Json};
 use serde_json::{json, Value};

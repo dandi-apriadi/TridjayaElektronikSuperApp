@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../features/kepala_cabang/presentation/providers/kepala_cabang_provider.dart';
-import '../../../../features/kepala_cabang/models/kepala_cabang_models.dart';
 import '../../../../shared/widgets/app_scaffold.dart';
+import '../../models/work_report_models.dart';
 
 /// ============================================================
-/// ✅ WORK REPORT APPROVAL SCREEN - Backend Integration
+/// ✅ WORK REPORT APPROVAL SCREEN
 /// Kepala Cabang - Review dan Approval Laporan Kerja Staff
 /// ============================================================
 
@@ -22,6 +21,15 @@ class WorkReportApprovalScreen extends ConsumerStatefulWidget {
 class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String _selectedBranch = 'Semua Cabang';
+  
+  final List<String> _branches = [
+    'Semua Cabang',
+    'Sam Ratulangi',
+    'Bahu',
+    'Malahayati',
+    'Tondano',
+  ];
 
   @override
   void initState() {
@@ -35,61 +43,8 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
     super.dispose();
   }
 
-  Future<void> _handleApprove(String reportId) async {
-    try {
-      await ref.read(workReportReviewActionProvider.notifier).approveWorkReport(reportId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Laporan berhasil disetujui'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Refresh data
-        ref.invalidate(pendingWorkReportsProvider);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal menyetujui: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _handleReject(String reportId, String reason) async {
-    try {
-      await ref.read(workReportReviewActionProvider.notifier).rejectWorkReport(reportId, reason);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Laporan ditolak'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        // Refresh data
-        ref.invalidate(pendingWorkReportsProvider);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal menolak: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final pendingAsync = ref.watch(pendingWorkReportsProvider);
-    final branchDashboardAsync = ref.watch(branchDashboardProvider);
-
     return AppScaffold(
       currentRoute: '/work-reports/approval',
       child: Scaffold(
@@ -127,45 +82,51 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
               Tab(text: 'Sudah Direview'),
             ],
           ),
+          actions: [
+            PopupMenuButton(
+              icon: const Icon(Icons.filter_list, color: Colors.white),
+              itemBuilder: (context) => _branches.map((branch) {
+                return PopupMenuItem(
+                  value: branch,
+                  child: Row(
+                    children: [
+                      if (_selectedBranch == branch)
+                        const Icon(Icons.check, size: 18, color: AppColors.primary),
+                      if (_selectedBranch == branch)
+                        const SizedBox(width: 8),
+                      Text(branch),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onSelected: (value) {
+                setState(() => _selectedBranch = value);
+              },
+            ),
+          ],
         ),
-        body: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(pendingWorkReportsProvider);
-            ref.invalidate(branchDashboardProvider);
-          },
-          child: Column(
-            children: [
-              // Stats Summary - Real data from backend
-              branchDashboardAsync.when(
-                data: (dashboard) => _buildStatsSection(dashboard),
-                loading: () => _buildLoadingStats(),
-                error: (_, __) => _buildErrorStats(),
+        body: Column(
+          children: [
+            // Stats Summary
+            _buildStatsSection(),
+            
+            // Tab Content
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildPendingTab(),
+                  _buildReviewedTab(),
+                ],
               ),
-              
-              // Tab Content
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // Pending Tab - Real data from backend
-                    pendingAsync.when(
-                      data: (reports) => _buildPendingTab(reports),
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (error, _) => _buildErrorState('Gagal memuat data', error.toString()),
-                    ),
-                    // Reviewed Tab - For now show empty or we can add another provider
-                    _buildReviewedTabPlaceholder(),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildStatsSection(BranchDashboard dashboard) {
+  Widget _buildStatsSection() {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
@@ -180,55 +141,17 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
       child: Row(
         children: [
           Expanded(
-            child: _buildStatItem(
-              'Menunggu', 
-              dashboard.pendingWorkReports.toString(), 
-              Icons.pending_actions
-            ),
+            child: _buildStatItem('Menunggu', '12', Icons.pending_actions),
           ),
           Expanded(
-            child: _buildStatItem('Disetujui', '0', Icons.check_circle),
+            child: _buildStatItem('Disetujui', '48', Icons.check_circle),
           ),
           Expanded(
-            child: _buildStatItem('Ditolak', '0', Icons.cancel),
+            child: _buildStatItem('Ditolak', '3', Icons.cancel),
           ),
           Expanded(
-            child: _buildStatItem(
-              'Total Staff', 
-              dashboard.activeEmployees.toString(), 
-              Icons.people
-            ),
+            child: _buildStatItem('Total Hari Ini', '63', Icons.assignment),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingStats() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      height: 100,
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Center(child: CircularProgressIndicator()),
-    );
-  }
-
-  Widget _buildErrorStats() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.red[100],
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.error_outline, color: Colors.red),
-          SizedBox(width: 8),
-          Text('Gagal memuat statistik', style: TextStyle(color: Colors.red)),
         ],
       ),
     );
@@ -259,8 +182,10 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
     );
   }
 
-  Widget _buildPendingTab(List<WorkReportReviewItem> reports) {
-    if (reports.isEmpty) {
+  Widget _buildPendingTab() {
+    final pendingReports = _getDummyPendingReports();
+    
+    if (pendingReports.isEmpty) {
       return _buildEmptyState(
         icon: Icons.check_circle_outline,
         title: 'Semua Laporan Sudah Direview',
@@ -270,24 +195,36 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
     
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: reports.length,
+      itemCount: pendingReports.length,
       itemBuilder: (context, index) {
-        final report = reports[index];
+        final report = pendingReports[index];
         return _buildPendingReportCard(report);
       },
     );
   }
 
-  Widget _buildReviewedTabPlaceholder() {
-    // TODO: Add provider for reviewed reports history
-    return _buildEmptyState(
-      icon: Icons.folder_open,
-      title: 'Riwayat Review',
-      subtitle: 'Fitur riwayat review akan segera hadir',
+  Widget _buildReviewedTab() {
+    final reviewedReports = _getDummyReviewedReports();
+    
+    if (reviewedReports.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.folder_open,
+        title: 'Belum Ada Laporan',
+        subtitle: 'Laporan yang sudah direview akan muncul di sini',
+      );
+    }
+    
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: reviewedReports.length,
+      itemBuilder: (context, index) {
+        final report = reviewedReports[index];
+        return _buildReviewedReportCard(report);
+      },
     );
   }
 
-  Widget _buildPendingReportCard(WorkReportReviewItem report) {
+  Widget _buildPendingReportCard(WorkReport report) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -306,7 +243,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                 CircleAvatar(
                   backgroundColor: AppColors.primary.withOpacity(0.1),
                   child: Text(
-                    report.employeeName.isNotEmpty ? report.employeeName[0] : '?',
+                    report.userName.substring(0, 1),
                     style: TextStyle(
                       color: AppColors.primary,
                       fontWeight: FontWeight.bold,
@@ -319,14 +256,14 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        report.employeeName,
+                        report.userName,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
                         ),
                       ),
                       Text(
-                        'Karyawan',
+                        '${report.role} • ${report.branchName}',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textHint,
@@ -360,7 +297,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                 Icon(Icons.calendar_today, size: 14, color: AppColors.textHint),
                 const SizedBox(width: 6),
                 Text(
-                  _formatDate(report.reportDate),
+                  DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(report.reportDate),
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textHint,
@@ -382,14 +319,14 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
             ),
             
             // Photo indicator
-            if (report.photos.isNotEmpty) ...[
+            if (report.photoUrls != null && report.photoUrls!.isNotEmpty) ...[
               const SizedBox(height: 12),
               Row(
                 children: [
                   Icon(Icons.photo, size: 16, color: AppColors.primary),
                   const SizedBox(width: 6),
                   Text(
-                    '${report.photos.length} foto dilampirkan',
+                    '${report.photoUrls!.length} foto dilampirkan',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.primary,
@@ -422,7 +359,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => _showReviewDialog(report),
+                    onPressed: () => _showApprovalDialog(report),
                     icon: const Icon(Icons.rate_review, size: 18),
                     label: const Text('Review'),
                     style: ElevatedButton.styleFrom(
@@ -438,6 +375,79 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildReviewedReportCard(WorkReport report) {
+    final isApproved = report.status == WorkReportStatus.approved;
+    final statusColor = isApproved ? AppColors.success : AppColors.error;
+    final statusIcon = isApproved ? Icons.check_circle : Icons.cancel;
+    final statusText = isApproved ? 'Disetujui' : 'Ditolak';
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppColors.divider),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: CircleAvatar(
+          backgroundColor: statusColor.withOpacity(0.1),
+          child: Icon(statusIcon, color: statusColor, size: 20),
+        ),
+        title: Text(
+          report.userName,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              DateFormat('dd MMM yyyy', 'id_ID').format(report.reportDate),
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textHint,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              report.content,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13),
+            ),
+            if (report.rejectionReason != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Alasan: ${report.rejectionReason}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            statusText,
+            style: TextStyle(
+              fontSize: 11,
+              color: statusColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        onTap: () => _viewReportDetail(report),
       ),
     );
   }
@@ -477,36 +487,88 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
     );
   }
 
-  Widget _buildErrorState(String title, String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.red[700],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: TextStyle(color: Colors.red[600]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+  List<WorkReport> _getDummyPendingReports() {
+    final now = DateTime.now();
+    return [
+      WorkReport(
+        id: 'wr001',
+        userId: 'u001',
+        userName: 'Budi Santoso',
+        branchId: 'b001',
+        branchName: 'Sam Ratulangi',
+        role: 'Sales',
+        content: 'Hari ini berhasil melakukan kunjungan ke 5 toko di area Bahu. Mendapatkan 2 prospek baru yang potensial. Melakukan follow-up pada 3 calon konsumen existing.',
+        photoUrls: ['https://picsum.photos/400/300', 'https://picsum.photos/400/301'],
+        status: WorkReportStatus.submitted,
+        reportDate: now.subtract(const Duration(days: 1)),
+        createdAt: now.subtract(const Duration(days: 1)),
       ),
-    );
+      WorkReport(
+        id: 'wr002',
+        userId: 'u002',
+        userName: 'Siti Aminah',
+        branchId: 'b001',
+        branchName: 'Sam Ratulangi',
+        role: 'Driver',
+        content: 'Mengantar 8 pesanan hari ini dengan jarak total 45 km. Semua pengiriman tepat waktu dan tidak ada kendala. Melakukan perawatan rutin kendaraan sore ini.',
+        status: WorkReportStatus.submitted,
+        reportDate: now.subtract(const Duration(days: 1)),
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+      WorkReport(
+        id: 'wr003',
+        userId: 'u003',
+        userName: 'Ahmad Fauzi',
+        branchId: 'b002',
+        branchName: 'Bahu',
+        role: 'Admin',
+        content: 'Melakukan stock opname pagi dan sore. Input 25 transaksi hari ini. Membuat laporan penjualan harian dan mengirim ke pusat. Tidak ada masalah dengan kas.',
+        photoUrls: ['https://picsum.photos/400/302'],
+        status: WorkReportStatus.submitted,
+        reportDate: now,
+        createdAt: now,
+      ),
+    ];
   }
 
-  void _viewReportDetail(WorkReportReviewItem report) {
+  List<WorkReport> _getDummyReviewedReports() {
+    final now = DateTime.now();
+    return [
+      WorkReport(
+        id: 'wr004',
+        userId: 'u004',
+        userName: 'Dewi Lestari',
+        branchId: 'b001',
+        branchName: 'Sam Ratulangi',
+        role: 'Sales',
+        content: 'Berhasil closing 3 transaksi hari ini dengan total nilai Rp 45 juta. Kunjungan ke 4 prospek baru di area Tondano.',
+        status: WorkReportStatus.approved,
+        reviewedBy: 'kc001',
+        reviewerName: 'Pak Hendra',
+        reportDate: now.subtract(const Duration(days: 2)),
+        createdAt: now.subtract(const Duration(days: 2)),
+        reviewedAt: now.subtract(const Duration(days: 1)),
+      ),
+      WorkReport(
+        id: 'wr005',
+        userId: 'u005',
+        userName: 'Eko Prasetyo',
+        branchId: 'b001',
+        branchName: 'Sam Ratulangi',
+        role: 'Driver',
+        content: 'Hanya mengantar 3 pesanan hari ini. Alasan tidak jelas kenapa produktivitas rendah.',
+        status: WorkReportStatus.rejected,
+        reviewedBy: 'kc001',
+        reviewerName: 'Pak Hendra',
+        rejectionReason: 'Penjelasan terlalu singkat, mohon berikan detail lebih lengkap',
+        reportDate: now.subtract(const Duration(days: 3)),
+        createdAt: now.subtract(const Duration(days: 3)),
+        reviewedAt: now.subtract(const Duration(days: 2)),
+      ),
+    ];
+  }
+
+  void _viewReportDetail(WorkReport report) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -545,7 +607,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                       CircleAvatar(
                         backgroundColor: AppColors.primary.withOpacity(0.1),
                         child: Text(
-                          report.employeeName.isNotEmpty ? report.employeeName[0] : '?',
+                          report.userName.substring(0, 1),
                           style: TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.bold,
@@ -558,14 +620,14 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              report.employeeName,
+                              report.userName,
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
-                              'Karyawan',
+                              '${report.role} • ${report.branchName}',
                               style: TextStyle(
                                 color: AppColors.textHint,
                               ),
@@ -580,7 +642,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                   // Date
                   _buildDetailSection(
                     'Tanggal Laporan',
-                    _formatDate(report.reportDate),
+                    DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(report.reportDate),
                   ),
                   
                   // Content
@@ -594,8 +656,12 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                   if (report.challenges != null)
                     _buildDetailSection('Kendala', report.challenges!),
                   
+                  // Next Plan
+                  if (report.nextPlan != null)
+                    _buildDetailSection('Rencana Selanjutnya', report.nextPlan!),
+                  
                   // Photos
-                  if (report.photos.isNotEmpty) ...[
+                  if (report.photoUrls != null && report.photoUrls!.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     const Text(
                       'Foto Bukti',
@@ -609,20 +675,14 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: report.photos.map((url) {
+                      children: report.photoUrls!.map((url) {
                         return ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
-                            url.toString(),
+                            url,
                             width: 100,
                             height: 100,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 100,
-                              height: 100,
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.broken_image),
-                            ),
                           ),
                         );
                       }).toList(),
@@ -631,42 +691,44 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                   
                   const SizedBox(height: 24),
                   
-                  // Action buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _handleApprove(report.id);
-                          },
-                          icon: const Icon(Icons.check),
-                          label: const Text('Setujui'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.success,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                  // Action buttons for pending reports
+                  if (report.status == WorkReportStatus.submitted) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showApprovalDialog(report);
+                            },
+                            icon: const Icon(Icons.check),
+                            label: const Text('Setujui'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _showRejectDialog(report);
-                          },
-                          icon: const Icon(Icons.close),
-                          label: const Text('Tolak'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.error,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showRejectionDialog(report);
+                            },
+                            icon: const Icon(Icons.close),
+                            label: const Text('Tolak'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.error,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             );
@@ -701,13 +763,13 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
     );
   }
 
-  void _showReviewDialog(WorkReportReviewItem report) {
+  void _showApprovalDialog(WorkReport report) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Review Laporan'),
+        title: const Text('Setujui Laporan'),
         content: Text(
-          'Apakah Anda ingin menyetujui atau menolak laporan dari ${report.employeeName}?',
+          'Setujui laporan kerja dari ${report.userName} untuk tanggal ${DateFormat('dd MMMM yyyy', 'id_ID').format(report.reportDate)}?',
         ),
         actions: [
           TextButton(
@@ -717,18 +779,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _showRejectDialog(report);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Tolak'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _handleApprove(report.id);
+              _approveReport(report.id);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
@@ -741,7 +792,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
     );
   }
 
-  void _showRejectDialog(WorkReportReviewItem report) {
+  void _showRejectionDialog(WorkReport report) {
     final reasonController = TextEditingController();
     
     showDialog(
@@ -752,7 +803,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Berikan alasan penolakan untuk laporan ${report.employeeName}:',
+              'Berikan alasan penolakan untuk laporan ${report.userName}:',
             ),
             const SizedBox(height: 16),
             TextField(
@@ -787,7 +838,7 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
                 return;
               }
               Navigator.pop(context);
-              _handleReject(report.id, reasonController.text);
+              _rejectReport(report.id, reasonController.text);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
@@ -800,12 +851,25 @@ class _WorkReportApprovalScreenState extends ConsumerState<WorkReportApprovalScr
     );
   }
 
-  String _formatDate(String dateStr) {
-    try {
-      final date = DateTime.parse(dateStr);
-      return DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(date);
-    } catch (e) {
-      return dateStr;
-    }
+  void _approveReport(String reportId) {
+    // TODO: Call API to approve report
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Laporan berhasil disetujui'),
+        backgroundColor: Colors.green,
+      ),
+    );
+    setState(() {}); // Refresh UI
+  }
+
+  void _rejectReport(String reportId, String reason) {
+    // TODO: Call API to reject report
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Laporan ditolak. Alasan: $reason'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    setState(() {}); // Refresh UI
   }
 }

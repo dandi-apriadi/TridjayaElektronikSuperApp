@@ -57,7 +57,22 @@ class JobDeskTemplate {
     this.createdAt,
     this.createdBy,
   });
-  
+
+  factory JobDeskTemplate.fromJson(Map<String, dynamic> json) {
+    return JobDeskTemplate(
+      id: json['id'] ?? '',
+      role: json['role'] ?? '',
+      name: json['name'] ?? '',
+      description: json['description'],
+      isActive: json['is_active'] ?? true,
+      tasks: (json['tasks'] as List? ?? [])
+          .map((item) => JobDeskTaskItem.fromJson(item))
+          .toList(),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      createdBy: json['created_by'],
+    );
+  }
+
   JobDeskTemplate copyWith({
     String? id,
     String? role,
@@ -113,7 +128,32 @@ class JobDeskTaskItem {
     this.isHighlighted = false,
     this.helpText,
   });
-  
+
+  factory JobDeskTaskItem.fromJson(Map<String, dynamic> json) {
+    return JobDeskTaskItem(
+      id: json['id'] ?? '',
+      taskName: json['task_name'] ?? '',
+      description: json['description'],
+      type: JobDeskTaskType.values.firstWhere(
+        (e) => e.name == (json['type'] ?? 'checkbox'),
+        orElse: () => JobDeskTaskType.checkbox,
+      ),
+      requiresProof: json['requires_proof'] ?? false,
+      proofType: json['proof_type'] != null
+        ? JobDeskProofType.values.firstWhere(
+            (e) => e.name == json['proof_type'],
+            orElse: () => JobDeskProofType.none,
+          )
+        : null,
+      targetValue: json['target_value'],
+      targetUnit: json['target_unit'],
+      isMandatory: json['is_mandatory'] ?? true,
+      sortOrder: json['sort_order'] ?? 0,
+      isHighlighted: json['is_highlighted'] ?? false,
+      helpText: json['help_text'],
+    );
+  }
+
   JobDeskTaskItem copyWith({
     String? id,
     String? taskName,
@@ -183,6 +223,20 @@ class JobDeskAssignment {
     this.isActive = true,
     this.template,
   });
+
+  factory JobDeskAssignment.fromJson(Map<String, dynamic> json) {
+    return JobDeskAssignment(
+      id: json['id'] ?? '',
+      userId: json['user_id'] ?? '',
+      templateId: json['template_id'] ?? '',
+      assignedBy: json['assigned_by'] ?? '',
+      assignedAt: DateTime.parse(json['assigned_at'] ?? DateTime.now().toIso8601String()),
+      validFrom: json['valid_from'] != null ? DateTime.parse(json['valid_from']) : null,
+      validUntil: json['valid_until'] != null ? DateTime.parse(json['valid_until']) : null,
+      isActive: json['is_active'] ?? true,
+      template: json['template'] != null ? JobDeskTemplate.fromJson(json['template']) : null,
+    );
+  }
 }
 
 /// ============================================================
@@ -225,7 +279,29 @@ class JobDeskSubmission {
     this.rejectionReason,
     this.taskItem,
   });
-  
+
+  factory JobDeskSubmission.fromJson(Map<String, dynamic> json) {
+    return JobDeskSubmission(
+      id: json['id'] ?? '',
+      assignmentId: json['assignment_id'] ?? '',
+      taskItemId: json['task_item_id'] ?? '',
+      submissionDate: DateTime.parse(json['submission_date'] ?? DateTime.now().toIso8601String()),
+      status: JobDeskStatus.values.firstWhere(
+        (e) => e.name == (json['status'] ?? 'pending'),
+        orElse: () => JobDeskStatus.pending,
+      ),
+      actualValue: json['actual_value'],
+      notes: json['notes'],
+      proofPhotos: (json['proof_photos'] as List?)?.map((e) => e.toString()).toList(),
+      proofDocuments: (json['proof_documents'] as List?)?.map((e) => e.toString()).toList(),
+      proofLink: json['proof_link'],
+      submittedAt: json['submitted_at'] != null ? DateTime.parse(json['submitted_at']) : null,
+      verifiedBy: json['verified_by'],
+      verifiedAt: json['verified_at'] != null ? DateTime.parse(json['verified_at']) : null,
+      rejectionReason: json['rejection_reason'],
+    );
+  }
+
   bool get isPending => status == JobDeskStatus.pending;
   bool get isCompleted => status == JobDeskStatus.completed;
   bool get isVerified => status == JobDeskStatus.verified;
@@ -323,4 +399,58 @@ class JobDeskVerificationQueueItem {
     this.proofLink,
     required this.totalProofs,
   });
+}
+
+/// ============================================================
+/// 📸 JOB DESK PROOF (Individual Proof Model)
+/// ============================================================
+
+class JobDeskProof {
+  final String id;
+  final String url;
+  final String? type;
+  final DateTime uploadedAt;
+
+  JobDeskProof({
+    required this.id,
+    required this.url,
+    this.type,
+    required this.uploadedAt,
+  });
+
+  factory JobDeskProof.fromJson(Map<String, dynamic> json) {
+    return JobDeskProof(
+      id: json['id'] ?? '',
+      url: json['url'] ?? '',
+      type: json['type'],
+      uploadedAt: DateTime.parse(json['uploaded_at'] ?? DateTime.now().toIso8601String()),
+    );
+  }
+}
+
+/// ============================================================
+/// 📊 JOB DESK STATS (Summary stats for owner)
+/// ============================================================
+
+class JobDeskStats {
+  final int totalEmployees;
+  final int completedAll;
+  final double avgCompletion;
+  final int needAttention;
+
+  JobDeskStats({
+    required this.totalEmployees,
+    required this.completedAll,
+    required this.avgCompletion,
+    required this.needAttention,
+  });
+
+  factory JobDeskStats.fromJson(Map<String, dynamic> json) {
+    return JobDeskStats(
+      totalEmployees: json['total_employees'] ?? 0,
+      completedAll: json['completed_all'] ?? 0,
+      avgCompletion: (json['avg_completion'] ?? 0).toDouble(),
+      needAttention: json['need_attention'] ?? 0,
+    );
+  }
 }

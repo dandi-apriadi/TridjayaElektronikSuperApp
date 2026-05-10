@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../shared/dummy_data/dummy_data.dart';
+import '../../../../features/jobdesk/presentation/providers/jobdesk_provider.dart';
 import '../../../../shared/widgets/chart_widgets.dart';
 import '../../../../shared/widgets/stat_card.dart';
 
+/// Dashboard Kepala Cabang dengan data real dari backend
 class KepalaCabangDashboardScreen extends ConsumerWidget {
   const KepalaCabangDashboardScreen({super.key});
 
@@ -15,9 +16,11 @@ class KepalaCabangDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final branchName = user?.branchName ?? 'Cabang Pusat';
-    final inventory = DummyDataProvider.inventories.first;
-    final salesData = DummyDataProvider.salesData.first;
-    final pendingTasks = DummyDataProvider.tasks.where((t) => t.status == 'Pending' || t.status == 'InProgress').length;
+    
+    // Ambil data dari backend
+    final pendingJobdeskAsync = ref.watch(pendingJobdeskReviewProvider);
+    final myAssignmentsAsync = ref.watch(myJobdeskAssignmentsProvider);
+    
     final now = DateTime.now();
     final days = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     final months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -26,7 +29,11 @@ class KepalaCabangDashboardScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
-        onRefresh: () async {},
+        onRefresh: () async {
+          // Refresh semua provider
+          ref.invalidate(pendingJobdeskReviewProvider);
+          ref.invalidate(myJobdeskAssignmentsProvider);
+        },
         color: AppColors.kepalaCabangColor,
         child: CustomScrollView(
           slivers: [
@@ -77,46 +84,16 @@ class KepalaCabangDashboardScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // Quick Metrics
-                  Row(children: [
-                    Expanded(child: GradientStatCard(
-                      title: 'Penjualan Hari Ini', value: '${salesData.dailySales} unit',
-                      icon: Icons.shopping_cart_outlined, gradient: AppColors.kepalaCabangGradient,
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(
-                      title: 'Tugas Pending', value: '$pendingTasks',
-                      icon: Icons.task_outlined, color: AppColors.warning, onTap: () => context.go('/kepala-cabang/tasks'),
-                    )),
-                  ]),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: StatCard(title: 'Hadir', value: '${DummyDataProvider.employees.where((e) => e.status == 'Hadir').length}', icon: Icons.people_outline_rounded, color: AppColors.success)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: 'Pengiriman', value: '${DummyDataProvider.deliveries.length}', icon: Icons.local_shipping_outlined, color: AppColors.info)),
-                  ]),
+                  // Quick Metrics - Jobdesk
+                  _buildJobdeskMetrics(context, ref, pendingJobdeskAsync, myAssignmentsAsync),
                   const SizedBox(height: 20),
 
-                  // Stock
-                  _buildStockSection(inventory),
-                  const SizedBox(height: 20),
-                  _buildStockChart(inventory),
+                  // Pending Jobdesk untuk Review
+                  _buildPendingJobdeskReview(context, ref, pendingJobdeskAsync),
                   const SizedBox(height: 20),
 
-                  // Attendance
-                  _buildAttendanceSection(),
-                  const SizedBox(height: 20),
-
-                  // Tasks
-                  _buildTasksSection(context),
-                  const SizedBox(height: 20),
-
-                  // Deliveries
-                  _buildDeliverySection(),
-                  const SizedBox(height: 20),
-
-                  // Pending Reports
-                  _buildPendingReports(context),
+                  // Jobdesk Aktif Saya
+                  _buildMyActiveJobdesk(context, ref, myAssignmentsAsync),
                   const SizedBox(height: 100),
                 ]),
               ),
@@ -127,201 +104,353 @@ class KepalaCabangDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStockSection(DummyInventorySummary inv) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SectionHeader(title: 'Stok Cabang'),
-      const SizedBox(height: 12),
-      Container(
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm),
-        padding: const EdgeInsets.all(16),
-        child: Row(children: [
-          _stockItem(Icons.battery_charging_full_rounded, 'Aki', inv.akiStock, AppColors.warning),
-          _stockDivider(),
-          _stockItem(Icons.tv_outlined, 'TV', inv.tvStock, AppColors.info),
-          _stockDivider(),
-          _stockItem(Icons.smartphone_outlined, 'HP', inv.hpStock, AppColors.success),
+  Widget _buildJobdeskMetrics(
+    BuildContext context, 
+    WidgetRef ref, 
+    AsyncValue<List<dynamic>> pendingAsync,
+    AsyncValue<List<dynamic>> myAssignmentsAsync
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Ringkasan Jobdesk'),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(
+            child: pendingAsync.when(
+              data: (pending) => StatCard(
+                title: 'Pending Review',
+                value: '${pending.length}',
+                icon: Icons.rate_review_outlined,
+                color: AppColors.warning,
+                onTap: () => context.go('/kepala-cabang/reports'),
+              ),
+              loading: () => _buildLoadingCard(),
+              error: (_, __) => StatCard(
+                title: 'Pending Review',
+                value: '-',
+                icon: Icons.error_outline,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: myAssignmentsAsync.when(
+              data: (assignments) {
+                final activeCount = assignments.where((a) => 
+                  a.status == 'assigned' || a.status == 'in_progress'
+                ).length;
+                return StatCard(
+                  title: 'Tugas Aktif',
+                  value: '$activeCount',
+                  icon: Icons.task_outlined,
+                  color: AppColors.info,
+                  onTap: () => context.go('/kepala-cabang/tasks'),
+                );
+              },
+              loading: () => _buildLoadingCard(),
+              error: (_, __) => StatCard(
+                title: 'Tugas Aktif',
+                value: '-',
+                icon: Icons.error_outline,
+                color: Colors.grey,
+              ),
+            ),
+          ),
         ]),
-      ),
-      if (inv.lowStockCount > 0) ...[
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(color: AppColors.errorBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.error.withOpacity(0.2))),
-          child: Row(children: [
-            const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 16),
-            const SizedBox(width: 8),
-            Text('${inv.lowStockCount} item perlu restock segera', style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w600)),
-          ]),
-        ),
-      ],
-    ]);
-  }
-
-  Widget _buildStockChart(DummyInventorySummary inv) {
-    return BarChartCard(
-      title: 'Stok per Kategori',
-      subtitle: 'Cabang ini',
-      unit: ' unit',
-      height: 160,
-      data: [
-        ChartBarData(label: 'Aki', value: inv.akiStock.toDouble(), color: AppColors.warning),
-        ChartBarData(label: 'TV', value: inv.tvStock.toDouble(), color: AppColors.info),
-        ChartBarData(label: 'HP', value: inv.hpStock.toDouble(), color: AppColors.success),
       ],
     );
   }
 
-  Widget _stockItem(IconData icon, String label, int val, Color color) {
-    return Expanded(child: Column(children: [
-      Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: color, size: 18)),
-      const SizedBox(height: 6),
-      Text('$val', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
-      Text(label, style: AppTextStyles.caption),
-    ]));
-  }
-
-  Widget _stockDivider() => Container(width: 1, height: 50, color: AppColors.divider);
-
-  Widget _buildAttendanceSection() {
-    final employees = DummyDataProvider.employees.where((e) => e.branchId == 'b1').take(4).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SectionHeader(title: 'Kehadiran Hari Ini', actionLabel: 'Semua'),
-      const SizedBox(height: 12),
-      Container(
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm),
-        child: ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: employees.length,
-          separatorBuilder: (_, __) => const Divider(height: 1, indent: 62, endIndent: 16),
-          itemBuilder: (_, i) {
-            final emp = employees[i];
-            final statusColor = emp.status == 'Hadir' ? AppColors.success : emp.status == 'Terlambat' ? AppColors.warning : AppColors.error;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(children: [
-                Container(
-                  width: 38, height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.kepalaCabangColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(child: Text(emp.name[0], style: AppTextStyles.subtitle.copyWith(color: AppColors.kepalaCabangColor))),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(emp.name, style: AppTextStyles.bodyMedium),
-                  Text(emp.role, style: AppTextStyles.caption),
-                ])),
-                StatusBadge(label: emp.status, color: statusColor),
-              ]),
+  Widget _buildPendingJobdeskReview(BuildContext context, WidgetRef ref, AsyncValue<List<dynamic>> pendingAsync) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Menunggu Review',
+          actionLabel: 'Semua',
+          onAction: () => context.go('/kepala-cabang/reports'),
+        ),
+        const SizedBox(height: 12),
+        pendingAsync.when(
+          data: (pending) {
+            if (pending.isEmpty) {
+              return _buildEmptyState('Tidak ada jobdesk yang menunggu review');
+            }
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: AppShadows.sm,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: pending.length > 5 ? 5 : pending.length,
+                separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
+                itemBuilder: (_, i) {
+                  final jobdesk = pending[i];
+                  return _buildJobdeskReviewItem(context, jobdesk);
+                },
+              ),
             );
           },
+          loading: () => _buildLoadingList(),
+          error: (error, _) => _buildErrorState('Gagal memuat data', error.toString()),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
-  Widget _buildTasksSection(BuildContext context) {
-    final tasks = DummyDataProvider.tasks.take(3).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionHeader(title: 'Tugas Aktif', actionLabel: 'Semua', onAction: () => context.go('/kepala-cabang/tasks')),
-      const SizedBox(height: 12),
-      Container(
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm),
-        child: ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: tasks.length,
-          separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
-          itemBuilder: (_, i) {
-            final task = tasks[i];
-            final pColor = task.priority == 'Urgent' ? AppColors.error : task.priority == 'High' ? AppColors.warning : AppColors.info;
-            final sColor = task.status == 'Completed' ? AppColors.success : task.status == 'InProgress' ? AppColors.info : AppColors.textSecondary;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(children: [
-                Container(width: 4, height: 36, decoration: BoxDecoration(color: pColor, borderRadius: BorderRadius.circular(2))),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(task.title, style: AppTextStyles.bodyMedium),
-                  Text(task.assignee, style: AppTextStyles.caption),
-                ])),
-                StatusBadge(label: task.status, color: sColor),
-              ]),
+  Widget _buildMyActiveJobdesk(BuildContext context, WidgetRef ref, AsyncValue<List<dynamic>> assignmentsAsync) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Jobdesk Saya',
+          actionLabel: 'Semua',
+          onAction: () => context.go('/kepala-cabang/tasks'),
+        ),
+        const SizedBox(height: 12),
+        assignmentsAsync.when(
+          data: (assignments) {
+            final active = assignments.where((a) => 
+              a.status == 'assigned' || a.status == 'in_progress'
+            ).toList();
+            
+            if (active.isEmpty) {
+              return _buildEmptyState('Tidak ada jobdesk aktif');
+            }
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: AppShadows.sm,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: active.length > 3 ? 3 : active.length,
+                separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
+                itemBuilder: (_, i) {
+                  final jobdesk = active[i];
+                  return _buildJobdeskItem(context, jobdesk);
+                },
+              ),
             );
           },
+          loading: () => _buildLoadingList(),
+          error: (error, _) => _buildErrorState('Gagal memuat data', error.toString()),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
-  Widget _buildDeliverySection() {
-    final deliveries = DummyDataProvider.deliveries.take(3).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SectionHeader(title: 'Pengiriman Hari Ini', actionLabel: 'Semua'),
-      const SizedBox(height: 12),
-      Container(
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm),
-        child: ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: deliveries.length,
-          separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
-          itemBuilder: (_, i) {
-            final d = deliveries[i];
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(children: [
-                Container(width: 36, height: 36,
-                  decoration: BoxDecoration(color: AppColors.kepalaCabangLight, borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.local_shipping_outlined, color: AppColors.kepalaCabangColor, size: 18)),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(d.customerName, style: AppTextStyles.bodyMedium),
-                  Text(d.address, style: AppTextStyles.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ])),
-                Text(d.scheduledTime, style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.kepalaCabangColor)),
-              ]),
-            );
-          },
-        ),
-      ),
-    ]);
-  }
-
-  Widget _buildPendingReports(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionHeader(title: 'Laporan Pending', actionLabel: 'Review', onAction: () => context.go('/kepala-cabang/reports')),
-      const SizedBox(height: 12),
-      GestureDetector(
-        onTap: () => context.go('/kepala-cabang/reports'),
-        child: Container(
-          padding: const EdgeInsets.all(16),
+  Widget _buildJobdeskReviewItem(BuildContext context, dynamic jobdesk) {
+    final statusColor = _getStatusColor(jobdesk.status);
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(children: [
+        Container(
+          width: 44, height: 44,
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: AppShadows.sm,
-            border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+            color: AppColors.warning.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Row(children: [
-            Container(width: 44, height: 44,
-              decoration: BoxDecoration(color: AppColors.warningBg, borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.pending_actions_outlined, color: AppColors.warning, size: 22)),
-            const SizedBox(width: 14),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('3 laporan menunggu review', style: AppTextStyles.bodyMedium),
-              Text('Terakhir dikirim 2 jam lalu', style: AppTextStyles.caption),
-            ])),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(color: AppColors.warningBg, borderRadius: BorderRadius.circular(8)),
-              child: Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.warning)),
+          child: const Icon(Icons.assignment_turned_in_outlined, color: AppColors.warning, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(jobdesk.title ?? 'Tugas Jobdesk', style: AppTextStyles.bodyMedium),
+            const SizedBox(height: 2),
+            Text(
+              'Dari: ${jobdesk.employeeName ?? "Karyawan"}',
+              style: AppTextStyles.caption,
             ),
-          ]),
+          ],
+        )),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            _getStatusLabel(jobdesk.status),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildJobdeskItem(BuildContext context, dynamic jobdesk) {
+    final statusColor = _getStatusColor(jobdesk.status);
+    final priorityColor = _getPriorityColor(jobdesk.priority);
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(children: [
+        Container(width: 4, height: 40, 
+          decoration: BoxDecoration(color: priorityColor, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 12),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(jobdesk.title ?? 'Tugas Jobdesk', style: AppTextStyles.bodyMedium),
+            const SizedBox(height: 2),
+            Text(
+              'Deadline: ${_formatDate(jobdesk.deadline)}',
+              style: AppTextStyles.caption,
+            ),
+          ],
+        )),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            _getStatusLabel(jobdesk.status),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildLoadingCard() {
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+    );
+  }
+
+  Widget _buildLoadingList() {
+    return Container(
+      height: 150,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppShadows.sm,
+      ),
+      child: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppShadows.sm,
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 8),
+            Text(message, style: TextStyle(color: Colors.grey[600])),
+          ],
         ),
       ),
-    ]);
+    );
+  }
+
+  Widget _buildErrorState(String title, String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red[200]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red[700]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red[700])),
+                Text(message, style: TextStyle(fontSize: 12, color: Colors.red[600])),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+      case 'approved':
+        return AppColors.success;
+      case 'submitted':
+      case 'completed_unapproved':
+        return AppColors.warning;
+      case 'rejected':
+        return AppColors.error;
+      case 'in_progress':
+        return AppColors.info;
+      case 'assigned':
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  String _getStatusLabel(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return 'Selesai';
+      case 'submitted':
+      case 'completed_unapproved':
+        return 'Menunggu';
+      case 'approved':
+        return 'Disetujui';
+      case 'rejected':
+        return 'Ditolak';
+      case 'in_progress':
+        return 'Dikerjakan';
+      case 'assigned':
+        return 'Ditugaskan';
+      default:
+        return status ?? 'Unknown';
+    }
+  }
+
+  Color _getPriorityColor(String? priority) {
+    switch (priority?.toLowerCase()) {
+      case 'urgent':
+        return AppColors.error;
+      case 'high':
+        return AppColors.warning;
+      case 'medium':
+        return AppColors.info;
+      default:
+        return AppColors.success;
+    }
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return '-';
+    try {
+      final date = DateTime.parse(dateStr);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return dateStr;
+    }
   }
 }
