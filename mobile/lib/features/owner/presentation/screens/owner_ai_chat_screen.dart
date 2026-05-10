@@ -128,29 +128,57 @@ class _OwnerAiChatScreenState extends ConsumerState<OwnerAiChatScreen> {
       alignment: msg.isAi ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
-          color: msg.isAi ? Colors.white.withOpacity(0.1) : AppColors.ownerColor.withOpacity(0.8),
+          color: msg.isAi ? Colors.white.withOpacity(0.08) : null,
+          gradient: msg.isAi 
+            ? null 
+            : LinearGradient(
+                colors: [AppColors.ownerColor, AppColors.ownerColor.withBlue(255)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(20),
-            topRight: const Radius.circular(20),
-            bottomLeft: Radius.circular(msg.isAi ? 4 : 20),
-            bottomRight: Radius.circular(msg.isAi ? 20 : 4),
+            topLeft: const Radius.circular(24),
+            topRight: const Radius.circular(24),
+            bottomLeft: Radius.circular(msg.isAi ? 4 : 24),
+            bottomRight: Radius.circular(msg.isAi ? 24 : 4),
           ),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
+          boxShadow: msg.isAi ? null : [
+            BoxShadow(
+              color: AppColors.ownerColor.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            )
+          ],
         ),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               msg.text,
-              style: const TextStyle(color: Colors.white, height: 1.5, fontSize: 15),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.95),
+                height: 1.4,
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+              ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              msg.time,
-              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (msg.isAi) ...[
+                  Icon(Icons.auto_awesome, size: 10, color: Colors.white.withOpacity(0.4)),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  msg.time,
+                  style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 10),
+                ),
+              ],
             ),
           ],
         ),
@@ -159,23 +187,41 @@ class _OwnerAiChatScreenState extends ConsumerState<OwnerAiChatScreen> {
   }
 
   Widget _buildQuickActions() {
-    final actions = ['Analisa Sales 1Thn', 'Cek Performa Cabang', 'Stok Kritis'];
-    return SizedBox(
-      height: 50,
+    final actions = ['📊 Analisa Sales', '🏢 Performa Cabang', '⚠️ Stok Kritis'];
+    return Container(
+      height: 44,
+      margin: const EdgeInsets.only(bottom: 8),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: actions.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, i) => ActionChip(
-          label: Text(actions[i], style: const TextStyle(color: Colors.white, fontSize: 12)),
-          backgroundColor: Colors.white.withOpacity(0.1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          side: BorderSide(color: Colors.white.withOpacity(0.2)),
-          onPressed: () {
-            _messageController.text = actions[i];
-            _sendMessage();
-          },
+        itemBuilder: (context, i) => Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              _messageController.text = actions[i].substring(3); // Remove emoji
+              _sendMessage();
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                actions[i],
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -183,27 +229,30 @@ class _OwnerAiChatScreenState extends ConsumerState<OwnerAiChatScreen> {
 
   Widget _buildInputSection() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
       child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: Colors.white.withOpacity(0.25)),
             ),
             child: Row(
               children: [
+                const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    decoration: InputDecoration(
                       hintText: 'Tanyakan sesuatu...',
-                      hintStyle: TextStyle(color: Colors.white54),
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
                       border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     onSubmitted: (_) => _sendMessage(),
                   ),
@@ -211,12 +260,15 @@ class _OwnerAiChatScreenState extends ConsumerState<OwnerAiChatScreen> {
                 GestureDetector(
                   onTap: _sendMessage,
                   child: Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: const BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                      ],
                     ),
-                    child: const Icon(Icons.arrow_upward, color: AppColors.ownerColor, size: 20),
+                    child: const Icon(Icons.arrow_upward_rounded, color: AppColors.ownerColor, size: 22),
                   ),
                 ),
               ],
