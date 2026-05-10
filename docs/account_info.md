@@ -1,58 +1,61 @@
 # 🔐 Informasi Akun Login (TE SuperApp)
 *Terakhir Diperbarui: 10 Mei 2026*
 
-Dokumen ini berisi informasi kredensial untuk keperluan testing aplikasi **Tridjaya Elektronik SuperApp** dengan skala data 16 cabang dan 350 karyawan.
+Semua akun menggunakan **password: `123`** dan login menggunakan **email**.
 
 ---
 
-## 🔑 Akun Akses Utama
-Semua akun menggunakan password default: **`123456`**
+## ⭐ Akun Khusus
 
-| Role | Username | Cabang | Keterangan |
-| :--- | :--- | :--- | :--- |
-| **Owner** | `owner` | - | Akses penuh (Dashboard & AI Chat) |
-| **Kepala Cabang** | `pak_iwan` | Sam Ratulangi | PIC Verifikasi Pelaporan |
-| **Kepala Cabang** | `kepala_cabang` | Bahu | Contoh Kepala Cabang |
-| **Admin** | `admin` | Sam Ratulangi | Akses Inventori & Admin |
+| Email | Role | Keterangan |
+|:---|:---|:---|
+| `owner@gmail.com` | Owner | Akses penuh + AI Chat |
+| `kevin@gmail.com` | PIC Pelaporan | Verifikasi jobdesk **semua 20 divisi** |
 
 ---
 
-## 👥 Akun Karyawan (347 Karyawan)
-Akun karyawan digenerate secara otomatis untuk simulasi skala besar.
+## 👥 Akun 20 Divisi (Karyawan)
 
-- **Username**: `user_001` sampai `user_347`
-- **Password**: `123456`
-- **Role**: Acak (Sales, Driver, Admin, Kepala Cabang)
-- **Cabang**: Tersebar di 16 cabang Tridjaya
+Semua divisi di bawah ini adalah **karyawan biasa** yang mengisi jobdesk harian. Laporan mereka diverifikasi oleh PIC Pelaporan.
 
----
-
-## 🏢 Daftar 16 Cabang Tridjaya
-Aplikasi kini mendukung 16 titik operasional berikut:
-
-1.  **Tridjaya Elektronik Sam Ratulangi** (Pusat)
-2.  **Tridjaya Elektronik Bahu**
-3.  **Tridjaya Elektronik Pamanukan**
-4.  **Tridjaya Elektronik Pagaden**
-5.  **Tridjaya Elektronik Patokbeusi**
-6.  **Tridjaya Elektronik Haurgeulis**
-7.  **Tridjaya Elektronik Cimalaka**
-8.  **Tridjaya Elektronik Cikampek**
-9.  **Tridjaya Elektronik Cibaduyut**
-10. **Tridjaya Elektronik Arjasari**
-11. **Tridjaya Elektronik Subang Kota**
-12. **Tridjaya Elektronik Purwakarta**
-13. **Tridjaya Elektronik Sumedang Kota**
-14. **Tridjaya Elektronik Karawang**
-15. **Tridjaya Elektronik Indramayu Kota**
-16. **Tridjaya Elektronik Bandung Main**
+| No | Divisi | Email Login |
+|:---|:---|:---|
+| 1 | Koordinator | `koordinator@gmail.com` |
+| 2 | Sales Elektronik | `sales@gmail.com` |
+| 3 | Driver | `driver@gmail.com` |
+| 4 | PDI | `pdi@gmail.com` |
+| 5 | Admin Pencairan | `admin.pencairan@gmail.com` |
+| 6 | Admin SPK | `admin.spk@gmail.com` |
+| 7 | Kasir | `kasir@gmail.com` |
+| 8 | Admin Stok | `admin.stok@gmail.com` |
+| 9 | Support Konten | `support.konten@gmail.com` |
+| 10 | Admin General | `admin.general@gmail.com` |
+| 11 | Support Online | `support.online@gmail.com` |
+| 12 | Support Event | `support.event@gmail.com` |
+| 13 | Supervisor | `supervisor@gmail.com` |
+| 14 | General Cashier | `general.cashier@gmail.com` |
+| 15 | Support Marketplace | `support.marketplace@gmail.com` |
+| 16 | ON Wilayah | `onwil@gmail.com` |
+| 17 | CRM | `crm@gmail.com` |
+| 18 | Poling | `poling@gmail.com` |
+| 19 | Desk Call | `desk.call@gmail.com` |
 
 ---
 
-## 📊 Data Simulasi (1 Tahun)
-Setiap akun karyawan di atas telah memiliki:
-- **~30 Laporan Kerja** yang tersebar dalam 1 tahun terakhir.
-- **Riwayat Izin/Cuti** acak untuk keperluan testing dashboard.
-
-> [!IMPORTANT]
-> Jangan lupa untuk mematikan dan menyalakan kembali backend (`cargo run`) jika database di-reset untuk memastikan data ini ter-load kembali.
+## 🏢 Daftar 16 Cabang
+1. Tridjaya Elektronik Sam Ratulangi
+2. Tridjaya Elektronik Bahu
+3. Tridjaya Elektronik Pamanukan
+4. Tridjaya Elektronik Pagaden
+5. Tridjaya Elektronik Patokbeusi
+6. Tridjaya Elektronik Haurgeulis
+7. Tridjaya Elektronik Cimalaka
+8. Tridjaya Elektronik Cikampek
+9. Tridjaya Elektronik Cibaduyut
+10. Tridjaya Elektronik Arjasari
+11. Tridjaya Elektronik Subang Kota
+12. Tridjaya Elektronik Purwakarta
+13. Tridjaya Elektronik Sumedang Kota
+14. Tridjaya Elektronik Karawang
+15. Tridjaya Elektronik Indramayu Kota
+16. Tridjaya Elektronik Bandung Main

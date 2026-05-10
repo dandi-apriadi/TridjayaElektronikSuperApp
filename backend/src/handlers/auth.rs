@@ -28,7 +28,7 @@ pub async fn login(
     // Validate input
     if req.username.is_empty() || req.password.is_empty() {
         return Err(AppError::BadRequest(
-            "Username dan password harus diisi".to_string(),
+            "Email dan password harus diisi".to_string(),
         ));
     }
 
@@ -36,12 +36,12 @@ pub async fn login(
     let user = get_user_by_username(&state.pool, &req.username)
         .await
         .map_err(|e| AppError::Database(e))?
-        .ok_or_else(|| AppError::Auth("Username atau password salah".to_string()))?;
+        .ok_or_else(|| AppError::Auth("Email atau password salah".to_string()))?;
 
     // Verify password
     let password_valid = verify_password(&req.password, &user.password_hash)?;
     if !password_valid {
-        return Err(AppError::Auth("Username atau password salah".to_string()));
+        return Err(AppError::Auth("Email atau password salah".to_string()));
     }
 
     // Get branch name if user has branch

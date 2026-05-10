@@ -43,6 +43,7 @@ import '../../features/jobdesk/presentation/screens/jobdesk_template_edit_screen
 import '../../features/jobdesk/presentation/screens/jobdesk_submission_screen.dart';
 import '../../features/jobdesk/presentation/screens/jobdesk_monitoring_screen.dart';
 import '../../features/jobdesk/presentation/screens/pic_dashboard_screen.dart';
+import '../../features/jobdesk/presentation/screens/pic_verification_dashboard_screen.dart';
 import '../../features/jobdesk/presentation/screens/photo_review_screen.dart';
 import '../../features/jobdesk/presentation/screens/task_submission_screen.dart';
 import '../../features/jobdesk/presentation/screens/jobdesk_activity_report_screen.dart';
@@ -315,6 +316,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/jobdesk/pic',
         builder: (_, state) => AppScaffold(currentRoute: state.matchedLocation, child: const PicDashboardScreen()),
+      ),
+      GoRoute(
+        path: '/jobdesk/pic-verification',
+        builder: (_, state) => const PicVerificationDashboardScreen(),
       ),
       GoRoute(
         path: '/jobdesk/verify/:id',

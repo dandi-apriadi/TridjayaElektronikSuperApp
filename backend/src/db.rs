@@ -186,95 +186,85 @@ pub async fn seed_data(pool: &Pool<Sqlite>) -> Result<()> {
         branch_ids.push(id);
     }
 
-    // Special Users
-    let password_hash = hash("123456", DEFAULT_COST)?;
+    // Division-based accounts (email login, password: 123)
+    let password_hash = hash("123", DEFAULT_COST)?;
     
-    // Owner
-    sqlx::query("INSERT INTO users (id, username, password_hash, role, branch_id) VALUES (?1, ?2, ?3, ?4, ?5)")
-        .bind(Uuid::new_v4().to_string())
-        .bind("owner")
-        .bind(&password_hash)
-        .bind(UserRole::Owner.as_str())
-        .bind(None::<String>)
-        .execute(pool).await?;
+    // (email, role, branch_index)
+    // All 20 divisi = karyawan biasa, PIC Pelaporan = satu-satunya verifikator
+    let division_accounts: Vec<(&str, &str, Option<usize>)> = vec![
+        ("owner@gmail.com", "Owner", None),
+        ("kevin@gmail.com", "Kepala_Cabang", None),   // PIC verifikasi semua divisi
+        ("koordinator@gmail.com", "Sales", Some(0)),
+        ("sales@gmail.com", "Sales", Some(0)),
+        ("driver@gmail.com", "Driver", Some(0)),
+        ("pdi@gmail.com", "Sales", Some(1)),
+        ("admin.pencairan@gmail.com", "Admin", Some(0)),
+        ("admin.spk@gmail.com", "Admin", Some(1)),
+        ("kasir@gmail.com", "Admin", Some(2)),
+        ("admin.stok@gmail.com", "Admin", Some(3)),
+        ("support.konten@gmail.com", "Sales", Some(2)),
+        ("admin.general@gmail.com", "Admin", Some(4)),
+        ("support.online@gmail.com", "Sales", Some(3)),
+        ("support.event@gmail.com", "Sales", Some(4)),
+        ("supervisor@gmail.com", "Sales", Some(1)),
+        ("general.cashier@gmail.com", "Admin", Some(5)),
+        ("support.marketplace@gmail.com", "Sales", Some(5)),
+        ("onwil@gmail.com", "Sales", Some(2)),
+        ("crm@gmail.com", "Sales", Some(6)),
+        ("poling@gmail.com", "Sales", Some(7)),
+        ("desk.call@gmail.com", "Sales", Some(8)),
+    ];
 
-    // PIC Pak Iwan at Sam Ratulangi (Branch index 0)
-    sqlx::query("INSERT INTO users (id, username, password_hash, role, branch_id) VALUES (?1, ?2, ?3, ?4, ?5)")
-        .bind(Uuid::new_v4().to_string())
-        .bind("pak_iwan")
-        .bind(&password_hash)
-        .bind(UserRole::KepalaCabang.as_str())
-        .bind(Some(&branch_ids[0]))
-        .execute(pool).await?;
-
-    // Generate 348 more users to reach 350
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
-    let roles = vec![UserRole::Sales, UserRole::Driver, UserRole::Admin, UserRole::KepalaCabang];
-    
     let mut user_ids = Vec::new();
 
-    for i in 1..=348 {
-        let username = format!("user_{:03}", i);
-        let role = &roles[rng.gen_range(0..roles.len())];
-        let branch_id = &branch_ids[rng.gen_range(0..branch_ids.len())];
+    for (email, role, branch_idx) in &division_accounts {
         let id = Uuid::new_v4().to_string();
-
+        let bid = branch_idx.map(|i| branch_ids[i].clone());
         sqlx::query("INSERT INTO users (id, username, password_hash, role, branch_id) VALUES (?1, ?2, ?3, ?4, ?5)")
             .bind(&id)
-            .bind(&username)
+            .bind(*email)
             .bind(&password_hash)
-            .bind(role.as_str())
-            .bind(Some(branch_id))
+            .bind(*role)
+            .bind(&bid)
             .execute(pool).await?;
-        
-        user_ids.push((id, branch_id.clone(), role.clone()));
-    }
-
-    // Simulate 1 year of data (last 365 days)
-    println!("Generating 1 year simulation data (this may take a few seconds)...");
-    use chrono::Duration;
-    let now = Utc::now();
-
-    for (user_id, branch_id, role) in user_ids.iter().take(100) { // Limit to 100 users for simulation to avoid huge DB
-        for d in 0..30 { // Simulate 30 random days in the last year for each user
-            let days_ago = rng.gen_range(1..365);
-            let date = now - Duration::days(days_ago);
-            
-            let status = if rng.gen_bool(0.8) { "approved" } else { "pending" };
-            let content = match role {
-                UserRole::Sales => "Melakukan kunjungan ke prospek konsumen dan follow up pembiayaan.",
-                UserRole::Driver => "Pengiriman unit ke alamat konsumen dan pengecekan STNK.",
-                UserRole::Admin => "Input data harian dan rekonsiliasi kas cabang.",
-                _ => "Supervisi operasional harian cabang.",
-            };
-
-            sqlx::query("INSERT INTO work_reports (id, user_id, branch_id, content, status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
-                .bind(Uuid::new_v4().to_string())
-                .bind(user_id)
-                .bind(branch_id)
-                .bind(content)
-                .bind(status)
-                .bind(date)
-                .execute(pool).await?;
-            
-            // Randomly add leave requests
-            if rng.gen_bool(0.05) {
-                sqlx::query("INSERT INTO leave_requests (id, user_id, branch_id, reason, start_date, end_date, status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
-                    .bind(Uuid::new_v4().to_string())
-                    .bind(user_id)
-                    .bind(branch_id)
-                    .bind("Izin kepentingan keluarga")
-                    .bind(date.date_naive())
-                    .bind((date + Duration::days(1)).date_naive())
-                    .bind("approved")
-                    .bind(date)
-                    .execute(pool).await?;
-            }
+        if let Some(b) = bid {
+            user_ids.push((id, b, role.to_string()));
         }
     }
 
-    println!("Comprehensive seed data completed!");
+    // Bulk users (user_001..user_330) to reach ~350 total
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let roles = vec!["Sales", "Driver", "Admin", "Kepala_Cabang"];
+
+    for i in 1..=330 {
+        let email = format!("user_{:03}@gmail.com", i);
+        let role = roles[rng.gen_range(0..roles.len())];
+        let branch_id = &branch_ids[rng.gen_range(0..branch_ids.len())];
+        let id = Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO users (id, username, password_hash, role, branch_id) VALUES (?1, ?2, ?3, ?4, ?5)")
+            .bind(&id).bind(&email).bind(&password_hash).bind(role).bind(Some(branch_id))
+            .execute(pool).await?;
+        user_ids.push((id, branch_id.clone(), role.to_string()));
+    }
+
+    // Simulate 1 year of work reports
+    println!("Generating 1 year simulation data...");
+    use chrono::Duration;
+    let now = Utc::now();
+    for (user_id, branch_id, _role) in user_ids.iter().take(80) {
+        for _ in 0..25 {
+            let days_ago = rng.gen_range(1..365);
+            let date = now - Duration::days(days_ago);
+            let status = if rng.gen_bool(0.8) { "approved" } else { "pending" };
+            sqlx::query("INSERT INTO work_reports (id, user_id, branch_id, content, status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
+                .bind(Uuid::new_v4().to_string()).bind(user_id).bind(branch_id)
+                .bind("Laporan kerja harian").bind(status).bind(date)
+                .execute(pool).await?;
+        }
+    }
+
+    println!("Seed data completed! (350 users, 20 division accounts)");
     Ok(())
 }
 

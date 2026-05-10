@@ -203,14 +203,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget _buildUsernameField() {
     return TextFormField(
       controller: _usernameController,
-      keyboardType: TextInputType.text,
+      keyboardType: TextInputType.emailAddress,
       textInputAction: TextInputAction.next,
       autocorrect: false,
       style: AppTextStyles.bodyMedium,
       decoration: InputDecoration(
-        labelText: 'Username',
-        hintText: 'Masukkan username Anda',
-        prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+        labelText: 'Email',
+        hintText: 'divisi@gmail.com',
+        prefixIcon: const Icon(Icons.email_outlined, size: 20),
         filled: true,
         fillColor: AppColors.surface,
         enabledBorder: OutlineInputBorder(
@@ -230,7 +230,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           borderSide: const BorderSide(color: AppColors.error, width: 2),
         ),
       ),
-      validator: (v) => (v == null || v.trim().isEmpty) ? 'Username tidak boleh kosong' : null,
+      validator: (v) => (v == null || v.trim().isEmpty) ? 'Email tidak boleh kosong' : null,
     );
   }
 
@@ -273,7 +273,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       ),
       validator: (v) {
         if (v == null || v.isEmpty) return 'Password tidak boleh kosong';
-        if (v.length < 6) return 'Password minimal 6 karakter';
         return null;
       },
     );
@@ -332,7 +331,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   String _parseError(Object error) {
     final msg = error.toString();
-    if (msg.contains('401')) return 'Username atau password salah';
+    if (msg.contains('401')) return 'Email atau password salah';
     if (msg.contains('429')) return 'Terlalu banyak percobaan. Coba lagi nanti.';
     if (msg.contains('SocketException') || msg.contains('connection')) {
       return 'Tidak dapat terhubung ke server';
