@@ -351,6 +351,143 @@ pub async fn init_db(database_url: &str) -> Result<Pool<Sqlite>> {
     .execute(&pool)
     .await?;
 
+    // Sales - Prospects table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS prospects (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            email TEXT,
+            address TEXT,
+            status TEXT DEFAULT 'new', -- new, contacted, negotiation, closed, lost
+            source TEXT,
+            product_interest TEXT,
+            budget INTEGER,
+            notes TEXT,
+            last_contact TIMESTAMP,
+            next_followup TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Sales - Campaigns table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS campaigns (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            target_amount INTEGER NOT NULL,
+            achieved_amount INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'active', -- active, completed, cancelled
+            start_date TIMESTAMP NOT NULL,
+            end_date TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Driver - Deliveries table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS deliveries (
+            id TEXT PRIMARY KEY,
+            driver_id TEXT,
+            customer_name TEXT NOT NULL,
+            customer_phone TEXT,
+            address TEXT NOT NULL,
+            latitude REAL,
+            longitude REAL,
+            status TEXT DEFAULT 'pending', -- pending, in_progress, completed, failed
+            scheduled_time TEXT,
+            completed_at TIMESTAMP,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (driver_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // CRM - Customers table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS crm_customers (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            email TEXT,
+            address TEXT,
+            status TEXT DEFAULT 'cold', -- hot, warm, cold, converted, lost
+            source TEXT,
+            budget INTEGER,
+            interest TEXT,
+            notes TEXT,
+            last_interaction TIMESTAMP,
+            next_followup TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // CRM - Customer Interactions table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS customer_interactions (
+            id TEXT PRIMARY KEY,
+            customer_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            interaction_type TEXT NOT NULL, -- call, email, meeting, message
+            notes TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES crm_customers(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    // Schedule - Shifts table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS shifts (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            shift_type TEXT NOT NULL, -- morning, afternoon, night, custom
+            start_time TIMESTAMP NOT NULL,
+            end_time TIMESTAMP NOT NULL,
+            location TEXT,
+            notes TEXT,
+            status TEXT DEFAULT 'scheduled', -- scheduled, completed, cancelled
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
     // Create index for faster lookups
     sqlx::query(
         r#"
@@ -376,6 +513,19 @@ pub async fn init_db(database_url: &str) -> Result<Pool<Sqlite>> {
         CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
         CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
         CREATE INDEX IF NOT EXISTS idx_notification_prefs_user ON notification_preferences(user_id);
+        CREATE INDEX IF NOT EXISTS idx_prospects_user ON prospects(user_id);
+        CREATE INDEX IF NOT EXISTS idx_prospects_status ON prospects(status);
+        CREATE INDEX IF NOT EXISTS idx_prospects_date ON prospects(created_at);
+        CREATE INDEX IF NOT EXISTS idx_campaigns_user ON campaigns(user_id);
+        CREATE INDEX IF NOT EXISTS idx_deliveries_driver ON deliveries(driver_id);
+        CREATE INDEX IF NOT EXISTS idx_deliveries_status ON deliveries(status);
+        CREATE INDEX IF NOT EXISTS idx_crm_customers_user ON crm_customers(user_id);
+        CREATE INDEX IF NOT EXISTS idx_crm_customers_status ON crm_customers(status);
+        CREATE INDEX IF NOT EXISTS idx_customer_interactions_customer ON customer_interactions(customer_id);
+        CREATE INDEX IF NOT EXISTS idx_customer_interactions_user ON customer_interactions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_shifts_user ON shifts(user_id);
+        CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(status);
+        CREATE INDEX IF NOT EXISTS idx_shifts_start_time ON shifts(start_time);
         "#,
     )
     .execute(&pool)
@@ -441,7 +591,7 @@ pub async fn seed_data(pool: &Pool<Sqlite>) -> Result<()> {
     // All 20 divisi = karyawan biasa, PIC Pelaporan = satu-satunya verifikator
     let division_accounts: Vec<(&str, &str, Option<usize>)> = vec![
         ("owner@gmail.com", "Owner", None),
-        ("kevin@gmail.com", "Kepala_Cabang", None),   // PIC verifikasi semua divisi
+        ("kevin@gmail.com", "PIC_Pelaporan", None),   // PIC verifikasi semua divisi
         ("koordinator@gmail.com", "Sales", Some(0)),
         ("sales@gmail.com", "Sales", Some(0)),
         ("driver@gmail.com", "Driver", Some(0)),
@@ -483,6 +633,11 @@ pub async fn seed_data(pool: &Pool<Sqlite>) -> Result<()> {
             user_ids.push((id, b, role.to_string()));
         }
     }
+
+    // Keep Kevin aligned with the PIC Pelaporan role on existing databases.
+    sqlx::query("UPDATE users SET role = 'PIC_Pelaporan' WHERE username = 'kevin' OR email = 'kevin@gmail.com'")
+        .execute(pool)
+        .await?;
 
     // Bulk users (user_001..user_330) to reach ~350 total
     use rand::Rng;

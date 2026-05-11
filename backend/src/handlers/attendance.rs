@@ -3,7 +3,7 @@ use axum::{
     Json,
     Extension,
 };
-use chrono::{DateTime, Local, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, Local, NaiveDate, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
@@ -259,24 +259,38 @@ pub async fn get_my_attendance_history(
     
     // Filter by status
     if let Some(status) = params.get("status") {
-        query.push_str(&format!(" AND a.status = '{}'", status));
+        query.push_str(" AND a.status = ?");
     }
     
     // Filter by start date
     if let Some(start_date) = params.get("start_date") {
-        query.push_str(&format!(" AND a.date >= '{}'", start_date));
+        query.push_str(" AND a.date >= ?");
     }
     
     // Filter by end date
     if let Some(end_date) = params.get("end_date") {
-        query.push_str(&format!(" AND a.date <= '{}'", end_date));
+        query.push_str(" AND a.date <= ?");
     }
     
     query.push_str(" ORDER BY a.date DESC LIMIT 100");
     
-    let records: Vec<(String, String, Option<String>, Option<String>, String, Option<String>, Option<String>, String, Option<f64>, Option<f64>, Option<String>, Option<String>, String)> 
-        = sqlx::query_as(&query)
-        .bind(&current_user.user_id)
+    let mut q = sqlx::query_as::<_, (String, String, Option<String>, Option<String>, String, Option<String>, Option<String>, String, Option<f64>, Option<f64>, Option<String>, Option<String>, String)>(&query);
+    
+    q = q.bind(&current_user.user_id);
+    
+    if let Some(status) = params.get("status") {
+        q = q.bind(status);
+    }
+    
+    if let Some(start_date) = params.get("start_date") {
+        q = q.bind(start_date);
+    }
+    
+    if let Some(end_date) = params.get("end_date") {
+        q = q.bind(end_date);
+    }
+    
+    let records = q
         .fetch_all(pool)
         .await
         .map_err(|e| AppError::Database(e))?;

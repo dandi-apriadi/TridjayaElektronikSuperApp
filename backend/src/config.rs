@@ -20,7 +20,7 @@ impl Config {
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite://te_superapp.db".to_string()),
             jwt_secret: std::env::var("JWT_SECRET")
-                .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string()),
+                .expect("JWT_SECRET environment variable must be set"),
             jwt_expiry_hours: std::env::var("JWT_EXPIRY_HOURS")
                 .unwrap_or_else(|_| "24".to_string())
                 .parse()?,

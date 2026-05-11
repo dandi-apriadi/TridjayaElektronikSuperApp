@@ -132,24 +132,40 @@ pub async fn get_inventory_items(
     // Filter by branch (admin sees only their branch, owner sees all)
     if current_user.role == UserRole::Admin {
         if let Some(branch_id) = &current_user.branch_id {
-            query.push_str(&format!(" AND branch_id = '{}'", branch_id));
+            query.push_str(" AND branch_id = ?");
         }
     }
     
     // Filter by category
     if let Some(category) = params.get("category") {
-        query.push_str(&format!(" AND category = '{}'", category));
+        query.push_str(" AND category = ?");
     }
     
     // Filter by status
     if let Some(active) = params.get("active") {
-        let is_active = active == "true";
-        query.push_str(&format!(" AND is_active = {}", if is_active { 1 } else { 0 }));
+        query.push_str(" AND is_active = ?");
     }
     
     query.push_str(" ORDER BY name ASC");
     
-    let items: Vec<InventoryItem> = sqlx::query_as(&query)
+    let mut q = sqlx::query_as::<_, InventoryItem>(&query);
+    
+    if current_user.role == UserRole::Admin {
+        if let Some(branch_id) = &current_user.branch_id {
+            q = q.bind(branch_id);
+        }
+    }
+    
+    if let Some(category) = params.get("category") {
+        q = q.bind(category);
+    }
+    
+    if let Some(active) = params.get("active") {
+        let is_active = active == "true";
+        q = q.bind(if is_active { 1 } else { 0 });
+    }
+    
+    let items: Vec<InventoryItem> = q
         .fetch_all(pool)
         .await
         .map_err(|e| AppError::Database(e))?;
@@ -392,26 +408,45 @@ pub async fn get_stock_transactions(
     // Filter by branch
     if current_user.role == UserRole::Admin {
         if let Some(branch_id) = &current_user.branch_id {
-            query.push_str(&format!(" AND branch_id = '{}'", branch_id));
+            query.push_str(" AND branch_id = ?");
         }
     }
     
     // Filter by type
     if let Some(tx_type) = params.get("type") {
-        query.push_str(&format!(" AND type = '{}'", tx_type));
+        query.push_str(" AND type = ?");
     }
     
     // Filter by date range
     if let Some(start_date) = params.get("start_date") {
-        query.push_str(&format!(" AND created_at >= '{}'", start_date));
+        query.push_str(" AND created_at >= ?");
     }
     if let Some(end_date) = params.get("end_date") {
-        query.push_str(&format!(" AND created_at <= '{}'", end_date));
+        query.push_str(" AND created_at <= ?");
     }
     
     query.push_str(" ORDER BY created_at DESC LIMIT 100");
     
-    let transactions: Vec<StockTransaction> = sqlx::query_as(&query)
+    let mut q = sqlx::query_as::<_, StockTransaction>(&query);
+    
+    if current_user.role == UserRole::Admin {
+        if let Some(branch_id) = &current_user.branch_id {
+            q = q.bind(branch_id);
+        }
+    }
+    
+    if let Some(tx_type) = params.get("type") {
+        q = q.bind(tx_type);
+    }
+    
+    if let Some(start_date) = params.get("start_date") {
+        q = q.bind(start_date);
+    }
+    if let Some(end_date) = params.get("end_date") {
+        q = q.bind(end_date);
+    }
+    
+    let transactions: Vec<StockTransaction> = q
         .fetch_all(pool)
         .await
         .map_err(|e| AppError::Database(e))?;
@@ -440,7 +475,7 @@ pub async fn get_inventory_alerts(
     // Filter by branch
     if current_user.role == UserRole::Admin {
         if let Some(branch_id) = &current_user.branch_id {
-            query.push_str(&format!(" AND branch_id = '{}'", branch_id));
+            query.push_str(" AND branch_id = ?");
         }
     }
     
@@ -452,12 +487,24 @@ pub async fn get_inventory_alerts(
     
     // Filter by severity
     if let Some(severity) = params.get("severity") {
-        query.push_str(&format!(" AND severity = '{}'", severity));
+        query.push_str(" AND severity = ?");
     }
     
     query.push_str(" ORDER BY severity DESC, created_at DESC");
     
-    let alerts: Vec<InventoryAlert> = sqlx::query_as(&query)
+    let mut q = sqlx::query_as::<_, InventoryAlert>(&query);
+    
+    if current_user.role == UserRole::Admin {
+        if let Some(branch_id) = &current_user.branch_id {
+            q = q.bind(branch_id);
+        }
+    }
+    
+    if let Some(severity) = params.get("severity") {
+        q = q.bind(severity);
+    }
+    
+    let alerts: Vec<InventoryAlert> = q
         .fetch_all(pool)
         .await
         .map_err(|e| AppError::Database(e))?;
@@ -480,44 +527,48 @@ pub async fn get_inventory_stats(
         return Err(AppError::Forbidden);
     }
     
-    let mut branch_filter = String::new();
-    if current_user.role == UserRole::Admin {
-        if let Some(branch_id) = &current_user.branch_id {
-            branch_filter = format!(" AND branch_id = '{}'", branch_id);
-        }
-    }
+    let branch_filter = if current_user.role == UserRole::Admin {
+        current_user.branch_id.clone()
+    } else {
+        None
+    };
     
     let total_items: i64 = sqlx::query_scalar(
-        &format!("SELECT COUNT(*) FROM inventory_items WHERE is_active = 1{}", branch_filter)
+        "SELECT COUNT(*) FROM inventory_items WHERE is_active = 1 AND (?1 IS NULL OR branch_id = ?1)"
     )
+    .bind(&branch_filter)
     .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
     
     let total_stock_value: Option<f64> = sqlx::query_scalar(
-        &format!("SELECT SUM(current_stock * COALESCE(price_per_unit, 0)) FROM inventory_items WHERE is_active = 1{}", branch_filter)
+        "SELECT SUM(current_stock * COALESCE(price_per_unit, 0)) FROM inventory_items WHERE is_active = 1 AND (?1 IS NULL OR branch_id = ?1)"
     )
+    .bind(&branch_filter)
     .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
     
     let low_stock_items: i64 = sqlx::query_scalar(
-        &format!("SELECT COUNT(*) FROM inventory_items WHERE current_stock <= minimum_stock AND is_active = 1{}", branch_filter)
+        "SELECT COUNT(*) FROM inventory_items WHERE current_stock <= minimum_stock AND is_active = 1 AND (?1 IS NULL OR branch_id = ?1)"
     )
+    .bind(&branch_filter)
     .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
     
     let out_of_stock_items: i64 = sqlx::query_scalar(
-        &format!("SELECT COUNT(*) FROM inventory_items WHERE current_stock = 0 AND is_active = 1{}", branch_filter)
+        "SELECT COUNT(*) FROM inventory_items WHERE current_stock = 0 AND is_active = 1 AND (?1 IS NULL OR branch_id = ?1)"
     )
+    .bind(&branch_filter)
     .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
     
     let alerts_count: i64 = sqlx::query_scalar(
-        &format!("SELECT COUNT(*) FROM inventory_alerts WHERE is_resolved = 0{}", branch_filter)
+        "SELECT COUNT(*) FROM inventory_alerts WHERE is_resolved = 0 AND (?1 IS NULL OR branch_id = ?1)"
     )
+    .bind(&branch_filter)
     .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;

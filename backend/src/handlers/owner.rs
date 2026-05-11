@@ -312,17 +312,21 @@ pub async fn get_sales_ranking(
 /// HANDLER: GET BRANCH DETAIL
 /// GET /api/owner/branches/:id
 /// ===========================================
-#[derive(Debug, Serialize, sqlx::FromRow, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct BranchDetail {
     pub id: String,
     pub code: String,
     pub name: String,
     pub address: String,
     pub phone: String,
-    pub email: String,
-    pub manager: Option<ManagerInfo>,
-    pub employee_count: i64,
-    pub metrics: BranchMetrics,
+    pub manager_id: Option<String>,
+    pub manager_name: Option<String>,
+    pub total_employees: i64,
+    pub total_revenue: f64,
+    pub total_orders: i64,
+    pub pending_approvals: i64,
+    pub attendance_rate: f64,
+    pub recent_activity: Vec<ActivityItem>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow, Clone)]
@@ -347,8 +351,8 @@ pub async fn get_branch_detail(
     let today = Utc::now().naive_utc().date();
     let start_date = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap();
 
-    // Get branch with manager info
-    let branch: (String, String, String, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>) = sqlx::query_as(
+    // Get branch basic info
+    let branch: (String, String, String, String, String, Option<String>, Option<String>) = sqlx::query_as(
         r#"
         SELECT 
             b.id,
@@ -356,11 +360,8 @@ pub async fn get_branch_detail(
             b.name,
             b.address,
             b.phone,
-            'branch@email.com' as email,
-            m.id as manager_id,
-            m.username as manager_name,
-            m.username as manager_email,
-            '000' as manager_phone
+            b.manager_id,
+            m.username as manager_name
         FROM branches b
         LEFT JOIN users m ON m.id = b.manager_id
         WHERE b.id = ?1
@@ -372,7 +373,7 @@ pub async fn get_branch_detail(
     .map_err(|e| AppError::Database(e))?;
 
     // Get employee count
-    let employee_count: i64 = sqlx::query_scalar(
+    let total_employees: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM users WHERE branch_id = ?1 AND is_active = 1"
     )
     .bind(&branch_id)
@@ -380,42 +381,114 @@ pub async fn get_branch_detail(
     .await
     .map_err(|e| AppError::Database(e))?;
 
-    // Get branch metrics
-    let metrics: BranchMetrics = sqlx::query_as(
+    // Get total revenue for this branch
+    let total_revenue: f64 = sqlx::query_scalar(
         r#"
-        SELECT 
-            b.id,
-            b.name,
-            b.code,
-            COALESCE(SUM(p.total_amount), 0.0) as revenue,
-            COUNT(DISTINCT u.id) as orders,
-            100000.0 as target,
-            0.0 as achievement_percentage
-        FROM branches b
-        LEFT JOIN users u ON u.branch_id = b.id AND u.is_active = 1
-        LEFT JOIN payroll_records p ON p.user_id = u.id 
-            AND p.status = 'paid'
-            AND p.created_at >= ?1
-        WHERE b.id = ?2
-        GROUP BY b.id, b.name, b.code
+        SELECT COALESCE(SUM(p.total_amount), 0.0)
+        FROM payroll_records p
+        JOIN users u ON u.id = p.user_id
+        WHERE u.branch_id = ?1
+        AND p.status = 'paid'
+        AND p.created_at >= ?2
         "#
     )
+    .bind(&branch_id)
     .bind(start_date)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Database(e))?;
+
+    // Get total orders (work reports completed)
+    let total_orders: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM work_reports wr
+        JOIN users u ON u.id = wr.user_id
+        WHERE u.branch_id = ?1
+        AND wr.status = 'approved'
+        AND wr.created_at >= ?2
+        "#
+    )
+    .bind(&branch_id)
+    .bind(start_date)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Database(e))?;
+
+    // Get pending approvals
+    let pending_work_reports: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM work_reports wr
+        JOIN users u ON u.id = wr.user_id
+        WHERE u.branch_id = ?1
+        AND wr.status = 'submitted'
+        "#
+    )
     .bind(&branch_id)
     .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;
 
-    let manager = if let Some(id) = branch.6 {
-        Some(ManagerInfo {
-            id: id.to_string(),
-            full_name: branch.7.unwrap_or_default(),
-            email: branch.8.unwrap_or_default(),
-            phone: branch.9.unwrap_or_default(),
-        })
+    let pending_jobdesk: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM jobdesk_assignments ja
+        JOIN users u ON u.id = ja.user_id
+        WHERE u.branch_id = ?1
+        AND ja.status = 'completed'
+        AND ja.approved_by IS NULL
+        "#
+    )
+    .bind(&branch_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Database(e))?;
+
+    // Get attendance rate
+    let total_attendance: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM attendance a
+        JOIN users u ON u.id = a.user_id
+        WHERE u.branch_id = ?1
+        AND a.date >= ?2
+        "#
+    )
+    .bind(&branch_id)
+    .bind(start_date)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| AppError::Database(e))?;
+
+    let working_days = (today - start_date).num_days().max(1);
+    let attendance_rate = if total_employees > 0 {
+        (total_attendance as f64 / (total_employees as f64 * working_days as f64)) * 100.0
     } else {
-        None
+        0.0
     };
+
+    // Get recent activity for this branch
+    let recent_activity: Vec<ActivityItem> = sqlx::query_as(
+        r#"
+        SELECT 
+            u.id,
+            u.username as user_name,
+            'login' as action,
+            'Logged in to system' as details,
+            u.updated_at as timestamp,
+            'login' as icon_type
+        FROM users u
+        WHERE u.branch_id = ?1
+        AND u.updated_at IS NOT NULL
+        ORDER BY u.updated_at DESC
+        LIMIT 5
+        "#
+    )
+    .bind(&branch_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| AppError::Database(e))?;
 
     let detail = BranchDetail {
         id: branch.0,
@@ -423,10 +496,14 @@ pub async fn get_branch_detail(
         name: branch.2,
         address: branch.3,
         phone: branch.4,
-        email: branch.5,
-        manager,
-        employee_count,
-        metrics,
+        manager_id: branch.5,
+        manager_name: branch.6,
+        total_employees,
+        total_revenue,
+        total_orders,
+        pending_approvals: pending_work_reports + pending_jobdesk,
+        attendance_rate: attendance_rate.min(100.0),
+        recent_activity,
     };
 
     Ok(Json(detail))
@@ -441,9 +518,11 @@ pub struct BranchListItem {
     pub id: String,
     pub code: String,
     pub name: String,
-    pub status: String,
-    pub employee_count: i64,
-    pub manager_name: Option<String>,
+    pub address: String,
+    pub phone: String,
+    pub manager_id: Option<String>,
+    pub total_employees: i64,
+    pub total_revenue: f64,
 }
 
 pub async fn get_all_branches(
@@ -462,13 +541,15 @@ pub async fn get_all_branches(
             b.id,
             b.code,
             b.name,
-            CASE WHEN b.is_active = 1 THEN 'active' ELSE 'inactive' END as status,
-            COUNT(DISTINCT u.id) as employee_count,
-            m.username as manager_name
+            b.address,
+            b.phone,
+            b.manager_id,
+            COUNT(DISTINCT u.id) as total_employees,
+            COALESCE(SUM(p.total_amount), 0.0) as total_revenue
         FROM branches b
         LEFT JOIN users u ON u.branch_id = b.id AND u.is_active = 1
-        LEFT JOIN users m ON m.id = b.manager_id
-        GROUP BY b.id, b.code, b.name, b.is_active, m.username
+        LEFT JOIN payroll_records p ON p.user_id = u.id AND p.status = 'paid'
+        GROUP BY b.id, b.code, b.name, b.address, b.phone, b.manager_id
         ORDER BY b.code
         "#
     )

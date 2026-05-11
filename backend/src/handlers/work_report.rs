@@ -157,21 +157,35 @@ pub async fn get_my_work_reports(
     
     // Filter by status
     if let Some(status) = params.get("status") {
-        query.push_str(&format!(" AND wr.status = '{}'", status));
+        query.push_str(" AND wr.status = ?");
     }
     
     // Filter by date range
     if let Some(start_date) = params.get("start_date") {
-        query.push_str(&format!(" AND wr.report_date >= '{}'", start_date));
+        query.push_str(" AND wr.report_date >= ?");
     }
     if let Some(end_date) = params.get("end_date") {
-        query.push_str(&format!(" AND wr.report_date <= '{}'", end_date));
+        query.push_str(" AND wr.report_date <= ?");
     }
     
     query.push_str(" ORDER BY wr.report_date DESC");
     
-    let reports: Vec<WorkReport> = sqlx::query_as(&query)
-        .bind(&current_user.user_id)
+    let mut q = sqlx::query_as::<_, WorkReport>(&query);
+    
+    q = q.bind(&current_user.user_id);
+    
+    if let Some(status) = params.get("status") {
+        q = q.bind(status);
+    }
+    
+    if let Some(start_date) = params.get("start_date") {
+        q = q.bind(start_date);
+    }
+    if let Some(end_date) = params.get("end_date") {
+        q = q.bind(end_date);
+    }
+    
+    let reports: Vec<WorkReport> = q
         .fetch_all(pool)
         .await
         .map_err(|e| AppError::Database(e))?;
@@ -195,6 +209,7 @@ pub async fn get_work_report_detail(
     // Cek permission - hanya pemilik, kepala cabang, atau owner yang bisa lihat
     if report.user_id != current_user.user_id 
         && current_user.role != UserRole::KepalaCabang
+        && current_user.role != UserRole::PicPelaporan
         && current_user.role != UserRole::Owner {
         return Err(AppError::Forbidden);
     }
@@ -239,35 +254,44 @@ pub async fn update_work_report(
         ));
     }
     
-    // Build dynamic query
-    let mut updates = vec![];
+    // Build dynamic query with safe placeholders
+    let mut set_clauses = vec![];
+    let mut binds: Vec<String> = vec![];
     
     if let Some(content) = req.content {
-        updates.push(format!("content = '{}'", content.replace("'", "''")));
+        set_clauses.push("content = ?");
+        binds.push(content);
     }
     if let Some(achievements) = req.achievements {
-        updates.push(format!("achievements = '{}'", achievements.replace("'", "''")));
+        set_clauses.push("achievements = ?");
+        binds.push(achievements);
     }
     if let Some(challenges) = req.challenges {
-        updates.push(format!("challenges = '{}'", challenges.replace("'", "''")));
+        set_clauses.push("challenges = ?");
+        binds.push(challenges);
     }
     if let Some(photos) = req.photo_urls {
         let photos_json = serde_json::to_string(&photos).unwrap_or_default();
-        updates.push(format!("photos = '{}'", photos_json.replace("'", "''")));
+        set_clauses.push("photos = ?");
+        binds.push(photos_json);
     }
     
-    if updates.is_empty() {
+    if set_clauses.is_empty() {
         return Err(AppError::BadRequest("Tidak ada data yang diupdate".to_string()));
     }
     
     let query = format!(
-        "UPDATE work_reports SET {} WHERE id = ?1",
-        updates.join(", ")
+        "UPDATE work_reports SET {} WHERE id = ?",
+        set_clauses.join(", ")
     );
     
-    sqlx::query(&query)
-        .bind(&id)
-        .execute(pool)
+    let mut q = sqlx::query(&query);
+    for bind in binds {
+        q = q.bind(bind);
+    }
+    q = q.bind(&id);
+    
+    q.execute(pool)
         .await
         .map_err(|e| AppError::Database(e))?;
     

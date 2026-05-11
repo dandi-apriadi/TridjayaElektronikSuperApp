@@ -7,12 +7,12 @@ mod models;
 mod utils;
 
 use axum::{
-    routing::{get, post},
+    routing::{get, post, put, delete},
     Router,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
@@ -42,10 +42,29 @@ async fn main() -> anyhow::Result<()> {
 
     let state = Arc::new(AppState { pool, config });
 
+    let allowed_origins = std::env::var("ALLOWED_ORIGINS")
+        .unwrap_or_else(|_| "http://localhost:8080,http://10.0.2.2:8080,http://192.168.1.19:8080,http://localhost:3000".to_string());
+    
+    let origins: Vec<_> = allowed_origins
+        .split(',')
+        .filter(|s| !s.is_empty())
+        .map(|s| s.parse::<axum::http::HeaderValue>().expect("Invalid origin in ALLOWED_ORIGINS"))
+        .collect();
+    
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(origins)
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers([
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::ACCEPT,
+        ]);
 
     let auth_layer = axum::middleware::from_fn_with_state(
         Arc::clone(&state),
@@ -111,6 +130,48 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/notifications/:id", delete(handlers::notification::delete_notification))
         .route("/api/notifications/preferences", get(handlers::notification::get_notification_preferences))
         .route("/api/notifications/preferences", put(handlers::notification::update_notification_preferences))
+        // Leave Request routes
+        .route("/api/leave-requests/my", get(handlers::leave_request::get_my_leave_requests))
+        .route("/api/leave-requests", get(handlers::leave_request::get_all_leave_requests))
+        .route("/api/leave-requests", post(handlers::leave_request::create_leave_request))
+        .route("/api/leave-requests/:id", get(handlers::leave_request::get_leave_request_detail))
+        .route("/api/leave-requests/:id/approve", post(handlers::leave_request::approve_leave_request))
+        .route("/api/leave-requests/:id/reject", post(handlers::leave_request::reject_leave_request))
+        // Sales routes
+        .route("/api/sales/dashboard", get(handlers::sales::get_sales_dashboard))
+        .route("/api/sales/prospects", get(handlers::sales::list_prospects))
+        .route("/api/sales/prospects", post(handlers::sales::create_prospect))
+        .route("/api/sales/prospects/:id", get(handlers::sales::get_prospect))
+        .route("/api/sales/prospects/:id", put(handlers::sales::update_prospect))
+        .route("/api/sales/prospects/:id", delete(handlers::sales::delete_prospect))
+        .route("/api/sales/campaigns", get(handlers::sales::list_campaigns))
+        .route("/api/sales/reports", get(handlers::sales::get_sales_report))
+        // Driver routes
+        .route("/api/driver/dashboard", get(handlers::driver::get_driver_dashboard))
+        .route("/api/driver/deliveries", get(handlers::driver::list_deliveries))
+        .route("/api/driver/deliveries", post(handlers::driver::create_delivery))
+        .route("/api/driver/deliveries/:id", get(handlers::driver::get_delivery))
+        .route("/api/driver/deliveries/:id", put(handlers::driver::update_delivery))
+        .route("/api/driver/deliveries/:id/complete", post(handlers::driver::complete_delivery))
+        .route("/api/driver/route", get(handlers::driver::get_route))
+        // CRM routes
+        .route("/api/crm/customers", get(handlers::crm::list_customers))
+        .route("/api/crm/customers", post(handlers::crm::create_customer))
+        .route("/api/crm/customers/:id", get(handlers::crm::get_customer))
+        .route("/api/crm/customers/:id", put(handlers::crm::update_customer))
+        .route("/api/crm/customers/:id", delete(handlers::crm::delete_customer))
+        .route("/api/crm/customers/:id/interactions", post(handlers::crm::create_interaction))
+        .route("/api/crm/interactions/:id", get(handlers::crm::get_interactions))
+        .route("/api/crm/statistics", get(handlers::crm::get_crm_statistics))
+        // Schedule routes
+        .route("/api/schedule/my-schedule", get(handlers::schedule::get_my_schedule))
+        .route("/api/schedule/team-schedule", get(handlers::schedule::get_team_schedule))
+        .route("/api/schedule/shifts", post(handlers::schedule::create_shift))
+        .route("/api/schedule/shifts/:id", get(handlers::schedule::get_shift))
+        .route("/api/schedule/shifts/:id", put(handlers::schedule::update_shift))
+        .route("/api/schedule/shifts/:id", delete(handlers::schedule::delete_shift))
+        .route("/api/schedule/shifts/:id/assign", post(handlers::schedule::assign_shift))
+        .route("/api/schedule/statistics", get(handlers::schedule::get_schedule_statistics))
         .layer(auth_layer);
 
     let app = Router::new()

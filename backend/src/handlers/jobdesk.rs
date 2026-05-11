@@ -301,8 +301,8 @@ pub async fn get_pending_review(
 ) -> Result<Json<Vec<JobdeskAssignment>>, AppError> {
     let pool = &state.pool;
     
-    // Hanya Owner, KepalaCabang, atau Admin yang bisa review
-    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::Admin) {
+    // Hanya Owner, KepalaCabang, PIC Pelaporan, atau Admin yang bisa review
+    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::PicPelaporan | UserRole::Admin) {
         return Err(AppError::Forbidden);
     }
     
@@ -406,8 +406,8 @@ pub async fn review_jobdesk(
 ) -> Result<StatusCode, AppError> {
     let pool = &state.pool;
     
-    // Hanya Owner, KepalaCabang, atau Admin yang bisa review
-    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::Admin) {
+    // Hanya Owner, KepalaCabang, PIC Pelaporan, atau Admin yang bisa review
+    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::PicPelaporan | UserRole::Admin) {
         return Err(AppError::Forbidden);
     }
     
@@ -451,8 +451,8 @@ pub async fn create_jobdesk(
 ) -> Result<Json<JobdeskAssignment>, AppError> {
     let pool = &state.pool;
     
-    // Hanya Owner, KepalaCabang, atau Admin yang bisa assign
-    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::Admin) {
+    // Hanya Owner, KepalaCabang, PIC Pelaporan, atau Admin yang bisa assign
+    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::PicPelaporan | UserRole::Admin) {
         return Err(AppError::Forbidden);
     }
     
@@ -594,7 +594,7 @@ pub async fn get_all_assignments(
 ) -> Result<Json<Vec<JobdeskAssignment>>, AppError> {
     let pool = &state.pool;
     
-    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::Admin) {
+    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::PicPelaporan | UserRole::Admin) {
         return Err(AppError::Forbidden);
     }
     
@@ -634,24 +634,42 @@ pub async fn get_all_assignments(
     );
     
     if current_user.role == UserRole::KepalaCabang {
-        if let Some(bid) = &current_user.branch_id {
-            query.push_str(&format!(" AND ja.branch_id = '{}'", bid));
+        if current_user.branch_id.is_some() {
+            query.push_str(" AND ja.branch_id = ?");
         }
-    } else if let Some(bid) = branch_id {
-        query.push_str(&format!(" AND ja.branch_id = '{}'", bid));
+    } else if branch_id.is_some() {
+        query.push_str(" AND ja.branch_id = ?");
     }
     
-    if let Some(s) = status {
-        query.push_str(&format!(" AND ja.status = '{}'", s));
+    if status.is_some() {
+        query.push_str(" AND ja.status = ?");
     }
     
-    if let Some(uid) = user_id {
-        query.push_str(&format!(" AND ja.user_id = '{}'", uid));
+    if user_id.is_some() {
+        query.push_str(" AND ja.user_id = ?");
     }
     
     query.push_str(" ORDER BY ja.assigned_date DESC, ja.priority DESC");
     
-    let assignments = sqlx::query_as::<_, JobdeskAssignment>(&query)
+    let mut q = sqlx::query_as::<_, JobdeskAssignment>(&query);
+    
+    if current_user.role == UserRole::KepalaCabang {
+        if let Some(bid) = &current_user.branch_id {
+            q = q.bind(bid);
+        }
+    } else if let Some(bid) = &branch_id {
+        q = q.bind(bid);
+    }
+    
+    if let Some(s) = &status {
+        q = q.bind(s);
+    }
+    
+    if let Some(uid) = &user_id {
+        q = q.bind(uid);
+    }
+    
+    let assignments = q
         .fetch_all(pool)
         .await
         .map_err(|e| AppError::DatabaseError(e.to_string()))?;
@@ -717,7 +735,7 @@ pub async fn get_all_templates(
 ) -> Result<Json<Vec<JobdeskTemplate>>, AppError> {
     let pool = &state.pool;
     
-    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::Admin) {
+    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::PicPelaporan | UserRole::Admin) {
         return Err(AppError::Forbidden);
     }
     
@@ -926,7 +944,7 @@ pub async fn convert_to_webp(
     let pool = &state.pool;
     
     // Only Owner/Admin/PIC can convert
-    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::Admin) {
+    if !matches!(current_user.role, UserRole::Owner | UserRole::KepalaCabang | UserRole::PicPelaporan | UserRole::Admin) {
         return Err(AppError::Forbidden);
     }
     

@@ -26,6 +26,7 @@ pub struct CurrentUser {
 pub enum UserRole {
     Owner,
     KepalaCabang,
+    PicPelaporan,
     Admin,
     Sales,
     Driver,
@@ -41,6 +42,8 @@ impl UserRole {
         match s.to_lowercase().as_str() {
             "owner" => Some(UserRole::Owner),
             "kepala_cabang" => Some(UserRole::KepalaCabang),
+            "pic_pelaporan" => Some(UserRole::PicPelaporan),
+            "picpelaporan" => Some(UserRole::PicPelaporan),
             "admin" => Some(UserRole::Admin),
             "sales" => Some(UserRole::Sales),
             "driver" => Some(UserRole::Driver),
@@ -57,6 +60,7 @@ impl UserRole {
         match self {
             UserRole::Owner => "owner",
             UserRole::KepalaCabang => "kepala_cabang",
+            UserRole::PicPelaporan => "pic_pelaporan",
             UserRole::Admin => "admin",
             UserRole::Sales => "sales",
             UserRole::Driver => "driver",
@@ -149,7 +153,7 @@ pub async fn auth_middleware_stateless(
     // We need the config for JWT verification. Since we don't have State,
     // we load it from environment directly (same values as Config::from_env)
     let jwt_secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "te_superapp_secret_key_2024_very_long_and_secure".to_string());
+        .map_err(|_| AppError::Unauthorized)?;
 
     // Manually decode JWT
     use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};

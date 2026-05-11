@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     AppState,
     error::{AppError, AppResult},
-    middleware::CurrentUser,
+    middleware::{CurrentUser, UserRole},
 };
 
 // ============================================
@@ -73,7 +73,7 @@ pub async fn create_notification(
     let pool = &state.pool;
     
     // Only Owner and Admin can create notifications
-    if current_user.role.to_string() != "Owner" && current_user.role.to_string() != "Admin" {
+    if current_user.role != UserRole::Owner && current_user.role != UserRole::Admin {
         return Err(AppError::Forbidden);
     }
     
@@ -94,7 +94,7 @@ pub async fn create_notification(
         .ok_or(AppError::BadRequest("message diperlukan".to_string()))?;
     
     let action_route = payload["action_route"].as_str();
-    let action_params = payload["action_params"].as_object().map(|v| v.to_string());
+    let action_params = payload["action_params"].as_object().map(|v| serde_json::to_string(v).unwrap_or_default());
     
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
@@ -160,40 +160,53 @@ pub async fn get_notifications(
     
     let filter_type = params.get("type");
     
-    // Build query
-    let mut where_clause = format!("WHERE user_id = '{}'", current_user.user_id);
+    // Build query with safe placeholders
+    let mut where_clause = String::from("WHERE user_id = ?");
+    let mut bind_count = 1;
     
     if unread_only {
         where_clause.push_str(" AND is_read = 0");
     }
     
-    if let Some(ntype) = filter_type {
-        where_clause.push_str(&format!(" AND type = '{}'", ntype));
+    if filter_type.is_some() {
+        bind_count += 1;
+        where_clause.push_str(" AND type = ?");
     }
     
     // Get total count
-    let total: i64 = sqlx::query_scalar(
-        &format!("SELECT COUNT(*) FROM notifications {}", where_clause)
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(|e| AppError::Database(e))?;
+    let total_query = format!("SELECT COUNT(*) FROM notifications {}", where_clause);
+    let mut total_q = sqlx::query_scalar::<_, i64>(&total_query)
+        .bind(&current_user.user_id);
+    if let Some(ntype) = filter_type {
+        total_q = total_q.bind(ntype);
+    }
+    let total: i64 = total_q
+        .fetch_one(pool)
+        .await
+        .map_err(|e| AppError::Database(e))?;
     
     // Get notifications
-    let notifications: Vec<Notification> = sqlx::query_as(
-        &format!(
-            "SELECT * FROM notifications {} ORDER BY created_at DESC LIMIT {} OFFSET {}",
-            where_clause, limit, offset
-        )
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AppError::Database(e))?;
+    let list_query = format!(
+        "SELECT * FROM notifications {} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        where_clause
+    );
+    let mut list_q = sqlx::query_as::<_, Notification>(&list_query)
+        .bind(&current_user.user_id);
+    if let Some(ntype) = filter_type {
+        list_q = list_q.bind(ntype);
+    }
+    let notifications: Vec<Notification> = list_q
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::Database(e))?;
     
     // Get unread count
     let unread_count: i64 = sqlx::query_scalar(
-        &format!("SELECT COUNT(*) FROM notifications WHERE user_id = '{}' AND is_read = 0", current_user.user_id)
+        "SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0"
     )
+    .bind(&current_user.user_id)
     .fetch_one(pool)
     .await
     .map_err(|e| AppError::Database(e))?;

@@ -6,6 +6,11 @@ pub mod work_report;
 pub mod attendance;
 pub mod inventory;
 pub mod notification;
+pub mod leave_request;
+pub mod sales;
+pub mod driver;
+pub mod crm;
+pub mod schedule;
 
 use axum::{extract::State, Json};
 use serde_json::{json, Value};

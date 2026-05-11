@@ -58,12 +58,12 @@ impl IntoResponse for AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Database error".to_string(),
             ),
-            AppError::DatabaseError(msg) => (
+            AppError::DatabaseError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                msg.clone(),
+                "Internal server error".to_string(),
             ),
-            AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
-            AppError::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+            AppError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+            AppError::InternalError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
             AppError::Jwt(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             AppError::PasswordHash => (
                 StatusCode::INTERNAL_SERVER_ERROR,

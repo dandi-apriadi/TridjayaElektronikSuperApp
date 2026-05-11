@@ -48,6 +48,7 @@ pub struct PasswordResetOtp {
 pub enum UserRole {
     Owner,
     KepalaCabang,
+    PicPelaporan,
     Admin,
     Sales,
     Driver,
@@ -63,6 +64,7 @@ impl UserRole {
         match self {
             UserRole::Owner => "Owner",
             UserRole::KepalaCabang => "Kepala_Cabang",
+            UserRole::PicPelaporan => "PIC_Pelaporan",
             UserRole::Admin => "Admin",
             UserRole::Sales => "Sales",
             UserRole::Driver => "Driver",
@@ -78,6 +80,7 @@ impl UserRole {
         match s {
             "Owner" => Some(UserRole::Owner),
             "Kepala_Cabang" => Some(UserRole::KepalaCabang),
+            "PIC_Pelaporan" => Some(UserRole::PicPelaporan),
             "Admin" => Some(UserRole::Admin),
             "Sales" => Some(UserRole::Sales),
             "Driver" => Some(UserRole::Driver),

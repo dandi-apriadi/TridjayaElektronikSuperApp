@@ -21,8 +21,9 @@ class DioClient {
   String? _authToken;
 
   static const List<String> _fallbackUrls = [
-    'http://10.0.2.2:8080/api',
-    'http://localhost:8080/api',
+    'http://192.168.1.19:8080/api', // Local network for physical device
+    'http://10.0.2.2:8080/api',     // Android emulator
+    'http://localhost:8080/api',    // iOS simulator / desktop
   ];
 
   Dio get dio => _dio;

@@ -7,7 +7,7 @@ class ApiEndpoints {
   // Base URL configured via environment
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8080/api', // Android emulator localhost
+    defaultValue: 'http://192.168.1.19:8080/api', // Local network (physical device)
   );
 
   // ===========================================

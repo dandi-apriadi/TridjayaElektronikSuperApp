@@ -127,8 +127,8 @@ async fn seed_users(pool: &SqlitePool, password_hash: &str) -> Result<(), sqlx::
     let users = vec![
         // Owner (div-010)
         ("user-001", "owner", "Owner Tridjaya", "owner@tridjaya.id", "Owner", "div-010", None::<&str>, "081234567001"),
-        // Pak Kevin - Kepala Cabang Bandung (PIC)
-        ("user-002", "pakkevin", "Pak Kevin", "kevin@tridjaya.id", "KepalaCabang", "div-009", Some("branch-001"), "081234567002"),
+        // Pak Kevin - PIC Pelaporan (verifikasi semua divisi)
+        ("user-002", "pakkevin", "Pak Kevin", "kevin@tridjaya.id", "PIC_Pelaporan", "div-009", Some("branch-001"), "081234567002"),
         // Admin
         ("user-003", "admin", "Admin Office", "admin@tridjaya.id", "Admin", "div-005", Some("branch-001"), "081234567003"),
         // Sales team (div-001)
@@ -180,6 +180,17 @@ async fn seed_users(pool: &SqlitePool, password_hash: &str) -> Result<(), sqlx::
         .execute(pool)
         .await?;
     }
+
+    sqlx::query(
+        r#"
+        UPDATE users
+        SET role = 'PIC_Pelaporan', updated_at = ?
+        WHERE id = 'user-002' OR username = 'pakkevin' OR email = 'kevin@tridjaya.id'
+        "#
+    )
+    .bind(Utc::now())
+    .execute(pool)
+    .await?;
     
     println!("✅ Users seeded (21 users)");
     Ok(())
@@ -458,7 +469,7 @@ pub const SEED_SQL: &str = r#"
 INSERT OR IGNORE INTO users (id, username, password_hash, role, branch_id, is_active, created_at, updated_at)
 VALUES 
     ('user-001', 'owner', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Owner', NULL, 1, datetime('now'), datetime('now')),
-    ('user-002', 'kepalacabang', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Kepala_Cabang', 'branch-001', 1, datetime('now'), datetime('now')),
+    ('user-002', 'kepalacabang', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'PIC_Pelaporan', 'branch-001', 1, datetime('now'), datetime('now')),
     ('user-003', 'admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Admin', 'branch-001', 1, datetime('now'), datetime('now')),
     ('user-004', 'sales', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Sales', 'branch-001', 1, datetime('now'), datetime('now')),
     ('user-005', 'driver', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/I1e', 'Driver', 'branch-001', 1, datetime('now'), datetime('now'));
