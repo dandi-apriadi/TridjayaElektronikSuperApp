@@ -198,45 +198,122 @@ enum JobDeskProofType {
 }
 
 /// ============================================================
-/// 👤 JOB DESK ASSIGNMENT (Template yang di-assign ke karyawan)
+/// 👤 JOB DESK ASSIGNMENT (Daily task assigned to employee)
 /// ============================================================
 
 class JobDeskAssignment {
   final String id;
-  final String userId;            // Karyawan yang di-assign
-  final String templateId;        // Template yang di-assign
-  final String assignedBy;        // Owner/Admin yang assign
-  final DateTime assignedAt;
-  final DateTime? validFrom;      // Mulai berlaku
-  final DateTime? validUntil;     // Berakhir (null = ongoing)
-  final bool isActive;
-  final JobDeskTemplate? template; // Embedded template data
-  
+  final String userId;
+  final String? templateId;
+  final String? assignedBy;
+  final DateTime? assignedAt;
+  final DateTime? validFrom;
+  final DateTime? validUntil;
+  final bool? isActive;
+  final JobDeskTemplate? template;
+
+  // Backend fields (daily task data)
+  final String? title;
+  final String? description;
+  final String? status;           // assigned, submitted, approved, rejected
+  final String? priority;         // low, normal, high, urgent
+  final DateTime? assignedDate;
+  final DateTime? dueDate;
+  final String? submittedAt;
+  final String? submittedNotes;
+  final String? reviewerName;
+  final String? reviewedAt;
+  final String? reviewNotes;
+  final String? rejectionReason;
+  final bool hasAttachments;
+  final String? employeeName;
+  final String? divisionName;
+  final String? branchName;
+  final String? branchId;
+  final String? templateTitle;
+
   JobDeskAssignment({
     required this.id,
     required this.userId,
-    required this.templateId,
-    required this.assignedBy,
-    required this.assignedAt,
+    this.templateId,
+    this.assignedBy,
+    this.assignedAt,
     this.validFrom,
     this.validUntil,
-    this.isActive = true,
+    this.isActive,
     this.template,
+    this.title,
+    this.description,
+    this.status,
+    this.priority,
+    this.assignedDate,
+    this.dueDate,
+    this.submittedAt,
+    this.submittedNotes,
+    this.reviewerName,
+    this.reviewedAt,
+    this.reviewNotes,
+    this.rejectionReason,
+    this.hasAttachments = false,
+    this.employeeName,
+    this.divisionName,
+    this.branchName,
+    this.branchId,
+    this.templateTitle,
   });
 
   factory JobDeskAssignment.fromJson(Map<String, dynamic> json) {
     return JobDeskAssignment(
       id: json['id'] ?? '',
       userId: json['user_id'] ?? '',
-      templateId: json['template_id'] ?? '',
-      assignedBy: json['assigned_by'] ?? '',
-      assignedAt: DateTime.parse(json['assigned_at'] ?? DateTime.now().toIso8601String()),
-      validFrom: json['valid_from'] != null ? DateTime.parse(json['valid_from']) : null,
-      validUntil: json['valid_until'] != null ? DateTime.parse(json['valid_until']) : null,
-      isActive: json['is_active'] ?? true,
-      template: json['template'] != null ? JobDeskTemplate.fromJson(json['template']) : null,
+      templateId: json['template_id'],
+      assignedBy: json['assigned_by'],
+      assignedAt: json['assigned_at'] != null
+          ? DateTime.parse(json['assigned_at'])
+          : null,
+      validFrom: json['valid_from'] != null
+          ? DateTime.parse(json['valid_from'])
+          : null,
+      validUntil: json['valid_until'] != null
+          ? DateTime.parse(json['valid_until'])
+          : json['due_date'] != null
+              ? DateTime.parse(json['due_date'])
+              : null,
+      isActive: json['is_active'],
+      template: json['template'] != null
+          ? JobDeskTemplate.fromJson(json['template'])
+          : null,
+      title: json['title'],
+      description: json['description'],
+      status: json['status'],
+      priority: json['priority'],
+      assignedDate: json['assigned_date'] != null
+          ? DateTime.parse(json['assigned_date'].toString())
+          : null,
+      dueDate: json['due_date'] != null
+          ? DateTime.parse(json['due_date'].toString())
+          : null,
+      submittedAt: json['submitted_at']?.toString(),
+      submittedNotes: json['submitted_notes'],
+      reviewerName: json['reviewer_name'],
+      reviewedAt: json['reviewed_at']?.toString(),
+      reviewNotes: json['review_notes'],
+      rejectionReason: json['rejection_reason'],
+      hasAttachments: (json['has_attachments'] as int?) == 1,
+      employeeName: json['employee_name'],
+      divisionName: json['division_name'],
+      branchName: json['branch_name'],
+      branchId: json['branch_id'],
+      templateTitle: json['template_title'],
     );
   }
+
+  // UI helpers
+  bool get isPending => status == 'assigned';
+  bool get isSubmitted => status == 'submitted';
+  bool get isApproved => status == 'approved';
+  bool get isRejected => status == 'rejected';
+  bool get isCompleted => status != 'assigned' && status != null;
 }
 
 /// ============================================================

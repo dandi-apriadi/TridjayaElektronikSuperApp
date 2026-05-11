@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../shared/dummy_data/dummy_data.dart';
 import '../../../../shared/widgets/chart_widgets.dart';
 import '../../../../shared/widgets/stat_card.dart';
+import '../../models/inventory_models.dart';
+import '../providers/inventory_provider.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -14,18 +15,23 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final inv = DummyDataProvider.inventories.first;
+    final statsAsync = ref.watch(inventoryStatsProvider);
+    final itemsAsync = ref.watch(inventoryItemsProvider(null));
+    final transactionsAsync = ref.watch(stockTransactionsProvider(null));
 
     final now = DateTime.now();
     final days = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     final months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    final branchName = user?.branchName ?? 'Cabang Pusat';
-    final pendingCount = DummyDataProvider.tasks.where((t) => t.status == 'Pending').length;
+    final branchName = user?.branchName ?? 'Cabang';
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
-        onRefresh: () async {},
+        onRefresh: () async {
+          ref.invalidate(inventoryStatsProvider);
+          ref.invalidate(inventoryItemsProvider);
+          ref.invalidate(stockTransactionsProvider);
+        },
         color: AppColors.adminColor,
         child: CustomScrollView(
           slivers: [
@@ -52,7 +58,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                             decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
                             child: const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 22)),
                           const Spacer(),
-                          IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white), onPressed: () {}),
+                          IconButton(
+                            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                            onPressed: () => context.push('/notifications'),
+                          ),
                         ]),
                         const SizedBox(height: 8),
                         Text('Admin Inventori', style: AppTextStyles.caption.copyWith(color: Colors.white.withOpacity(0.7))),
@@ -69,31 +78,91 @@ class AdminDashboardScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: GradientStatCard(title: 'Total Stok', value: '${inv.akiStock + inv.tvStock + inv.hpStock}', icon: Icons.inventory_2_outlined, gradient: AppColors.adminGradient)),
-                      const SizedBox(width: 12),
-                      Expanded(child: StatCard(title: 'Stok Rendah', value: '${inv.lowStockCount}', icon: Icons.warning_amber_outlined, color: AppColors.error, onTap: () => context.go('/admin/inventory'))),
-                  ]),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: StatCard(title: 'Tugas Pending', value: '$pendingCount', icon: Icons.task_outlined, color: AppColors.warning)),
-                      const SizedBox(width: 12),
-                      Expanded(child: StatCard(title: 'Pergerakan Hari Ini', value: '3', icon: Icons.swap_vert_rounded, color: AppColors.info)),
-                  ]),
+                  // Stats Cards
+                  statsAsync.when(
+                    loading: () => const Center(child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: CircularProgressIndicator(),
+                    )),
+                    error: (error, _) => Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text('Gagal memuat statistik: $error', style: const TextStyle(color: AppColors.error)),
+                    ),
+                    data: (stats) => Column(children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: GradientStatCard(
+                            title: 'Total Item',
+                            value: '${stats.totalItems}',
+                            icon: Icons.inventory_2_outlined,
+                            gradient: AppColors.adminGradient,
+                          )),
+                          const SizedBox(width: 12),
+                          Expanded(child: StatCard(
+                            title: 'Stok Rendah',
+                            value: '${stats.lowStockItems}',
+                            icon: Icons.warning_amber_outlined,
+                            color: AppColors.error,
+                            onTap: () => context.go('/admin/inventory'),
+                          )),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: StatCard(
+                            title: 'Habis Stok',
+                            value: '${stats.outOfStockItems}',
+                            icon: Icons.remove_shopping_cart_outlined,
+                            color: AppColors.warning,
+                          )),
+                          const SizedBox(width: 12),
+                          Expanded(child: StatCard(
+                            title: 'Alert Aktif',
+                            value: '${stats.alertsCount}',
+                            icon: Icons.notification_important_outlined,
+                            color: AppColors.info,
+                          )),
+                        ],
+                      ),
+                    ]),
+                  ),
+
                   const SizedBox(height: 20),
-                  _buildStockOverview(inv, context),
+
+                  // Stock Overview by Category
+                  itemsAsync.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (items) => _buildStockOverview(items, context),
+                  ),
+
                   const SizedBox(height: 20),
-                  _buildStockBarChart(inv),
+
+                  // Stock Distribution Chart
+                  itemsAsync.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (items) => _buildStockBarChart(items),
+                  ),
+
                   const SizedBox(height: 20),
                   _buildQuickActions(context),
                   const SizedBox(height: 20),
-                  _buildRecentMovements(),
-                  const SizedBox(height: 20),
-                  _buildAuditLog(),
+
+                  // Recent Transactions
+                  transactionsAsync.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (transactions) => _buildRecentMovements(transactions),
+                  ),
+
                   const SizedBox(height: 100),
                 ]),
               ),
@@ -104,24 +173,37 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStockOverview(DummyInventorySummary inv, BuildContext context) {
+  Widget _buildStockOverview(List<InventoryItem> items, BuildContext context) {
+    final categories = <String, int>{};
+    for (final item in items) {
+      categories[item.category] = (categories[item.category] ?? 0) + item.currentStock;
+    }
+    final lowStockCount = items.where((i) => i.currentStock <= i.minimumStock).length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Stok Saat Ini', actionLabel: 'Kelola', onAction: () => context.go('/admin/inventory')),
+        SectionHeader(title: 'Stok per Kategori', actionLabel: 'Kelola', onAction: () => context.go('/admin/inventory')),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm),
-          child: Row(children: [
-            _stockCol(Icons.battery_charging_full_rounded, 'Aki', inv.akiStock, AppColors.warning),
-            Container(width: 1, height: 50, color: AppColors.divider),
-            _stockCol(Icons.tv_outlined, 'TV', inv.tvStock, AppColors.info),
-            Container(width: 1, height: 50, color: AppColors.divider),
-            _stockCol(Icons.smartphone_outlined, 'HP', inv.hpStock, AppColors.success),
-          ]),
+          child: Row(
+            children: categories.entries.take(3).map((entry) {
+              final color = _categoryColor(entry.key);
+              final icon = _categoryIcon(entry.key);
+              return Expanded(child: Column(children: [
+                Container(width: 36, height: 36,
+                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                  child: Icon(icon, color: color, size: 18)),
+                const SizedBox(height: 6),
+                Text('${entry.value}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
+                Text(entry.key, style: AppTextStyles.caption),
+              ]));
+            }).toList(),
+          ),
         ),
-        if (inv.lowStockCount > 0) ...[
+        if (lowStockCount > 0) ...[
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () => context.go('/admin/inventory'),
@@ -131,8 +213,8 @@ class AdminDashboardScreen extends ConsumerWidget {
               child: Row(children: [
                 const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 16),
                 const SizedBox(width: 8),
-                Expanded(child: Text('${inv.lowStockCount} item perlu restock segera', style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w600))),
-                Text('Input →', style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w700)),
+                Expanded(child: Text('$lowStockCount item perlu restock segera', style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w600))),
+                Text('Lihat →', style: AppTextStyles.caption.copyWith(color: AppColors.error, fontWeight: FontWeight.w700)),
               ]),
             ),
           ),
@@ -141,17 +223,14 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _stockCol(IconData icon, String label, int val, Color color) {
-    return Expanded(child: Column(children: [
-      Container(width: 36, height: 36, decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: color, size: 18)),
-      const SizedBox(height: 6),
-      Text('$val', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
-      Text(label, style: AppTextStyles.caption),
-    ]));
-  }
+  Widget _buildStockBarChart(List<InventoryItem> items) {
+    final categories = <String, int>{};
+    for (final item in items) {
+      categories[item.category] = (categories[item.category] ?? 0) + item.currentStock;
+    }
 
-  Widget _buildStockBarChart(DummyInventorySummary inv) {
+    if (categories.isEmpty) return const SizedBox.shrink();
+
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SectionHeader(title: 'Distribusi Stok per Kategori'),
       const SizedBox(height: 12),
@@ -160,31 +239,27 @@ class AdminDashboardScreen extends ConsumerWidget {
         subtitle: 'Update terakhir: hari ini',
         unit: ' unit',
         height: 180,
-        data: [
-          ChartBarData(label: 'Aki', value: inv.akiStock.toDouble(), color: AppColors.warning),
-          ChartBarData(label: 'TV', value: inv.tvStock.toDouble(), color: AppColors.info),
-          ChartBarData(label: 'HP', value: inv.hpStock.toDouble(), color: AppColors.success),
-        ],
+        data: categories.entries.map((e) => ChartBarData(
+          label: e.key,
+          value: e.value.toDouble(),
+          color: _categoryColor(e.key),
+        )).toList(),
       ),
     ]);
   }
 
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
-      ('Tambah Stok', Icons.add_circle_outline_rounded, AppColors.success),
-      ('Kurangi Stok', Icons.remove_circle_outline_rounded, AppColors.error),
-      ('Scan Barcode', Icons.qr_code_scanner_rounded, AppColors.adminColor),
-      ('Lihat Semua', Icons.inventory_2_outlined, AppColors.info),
+      ('Tambah Stok', Icons.add_circle_outline_rounded, AppColors.success, '/admin/stock-in'),
+      ('Kurangi Stok', Icons.remove_circle_outline_rounded, AppColors.error, '/admin/stock-out'),
+      ('Lihat Semua', Icons.inventory_2_outlined, AppColors.info, '/admin/inventory'),
     ];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SectionHeader(title: 'Aksi Cepat'),
       const SizedBox(height: 12),
       Row(children: actions.map((a) => Expanded(
         child: GestureDetector(
-          onTap: () {
-            if (a.$1 == 'Lihat Semua') context.go('/admin/inventory');
-            else ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${a.$1} — Coming Soon'), behavior: SnackBarBehavior.floating));
-          },
+          onTap: () => context.push(a.$4),
           child: Container(
             margin: EdgeInsets.only(right: actions.indexOf(a) < actions.length - 1 ? 10 : 0),
             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -207,24 +282,38 @@ class AdminDashboardScreen extends ConsumerWidget {
     ]);
   }
 
-  Widget _buildRecentMovements() {
-    final movements = [
-      ('Aki GS NS40', '+50 unit', AppColors.success, '09:15', Icons.arrow_upward_rounded),
-      ('TV Samsung 43"', '-2 unit', AppColors.error, '08:42', Icons.arrow_downward_rounded),
-      ('HP Xiaomi Note 13', '+30 unit', AppColors.success, '08:00', Icons.arrow_upward_rounded),
-    ];
+  Widget _buildRecentMovements(List<StockTransaction> transactions) {
+    if (transactions.isEmpty) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SectionHeader(title: 'Pergerakan Stok Terbaru'),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
+          child: const Center(child: Text('Belum ada pergerakan stok')),
+        ),
+      ]);
+    }
+
+    final recentTransactions = transactions.take(5).toList();
+
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SectionHeader(title: 'Pergerakan Stok', actionLabel: 'Riwayat'),
+      const SectionHeader(title: 'Pergerakan Stok Terbaru'),
       const SizedBox(height: 12),
       Container(
         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm),
         child: ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: movements.length,
+          itemCount: recentTransactions.length,
           separatorBuilder: (_, __) => const Divider(height: 1, indent: 62, endIndent: 16),
           itemBuilder: (_, i) {
-            final (item, qty, color, time, icon) = movements[i];
+            final tx = recentTransactions[i];
+            final isAdd = tx.type == 'add';
+            final color = isAdd ? AppColors.success : AppColors.error;
+            final icon = isAdd ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+            final qtyStr = isAdd ? '+${tx.quantity}' : '-${tx.quantity}';
+
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(children: [
@@ -233,10 +322,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                   child: Icon(icon, color: color, size: 18)),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(item, style: AppTextStyles.bodyMedium),
-                  Text(time, style: AppTextStyles.caption),
+                  Text(tx.reason, style: AppTextStyles.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(_formatTime(tx.createdAt), style: AppTextStyles.caption),
                 ])),
-                Text(qty, style: AppTextStyles.bodyMedium.copyWith(color: color, fontWeight: FontWeight.w700)),
+                Text('$qtyStr unit', style: AppTextStyles.bodyMedium.copyWith(color: color, fontWeight: FontWeight.w700)),
               ]),
             );
           },
@@ -245,40 +334,34 @@ class AdminDashboardScreen extends ConsumerWidget {
     ]);
   }
 
-  Widget _buildAuditLog() {
-    final logs = [
-      ('Stok Aki GS +50 unit', 'Admin Dewi', '09:15'),
-      ('TV Samsung -2 unit (penjualan)', 'Admin Dewi', '08:42'),
-      ('HP Xiaomi +30 unit', 'Admin Dewi', '08:00'),
-    ];
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SectionHeader(title: 'Log Audit Terbaru'),
-      const SizedBox(height: 12),
-      Container(
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm),
-        child: ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: logs.length,
-          separatorBuilder: (_, __) => const Divider(height: 1, indent: 62, endIndent: 16),
-          itemBuilder: (_, i) {
-            final (action, user, time) = logs[i];
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(children: [
-                Container(width: 36, height: 36,
-                  decoration: BoxDecoration(color: AppColors.adminLight, borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.history_rounded, color: AppColors.adminColor, size: 18)),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(action, style: AppTextStyles.bodyMedium),
-                  Text('$user • $time', style: AppTextStyles.caption),
-                ])),
-              ]),
-            );
-          },
-        ),
-      ),
-    ]);
+  Color _categoryColor(String cat) {
+    switch (cat.toLowerCase()) {
+      case 'aki': return AppColors.warning;
+      case 'tv': return AppColors.info;
+      case 'hp': return AppColors.success;
+      default: return AppColors.primary;
+    }
+  }
+
+  IconData _categoryIcon(String cat) {
+    switch (cat.toLowerCase()) {
+      case 'aki': return Icons.battery_charging_full_rounded;
+      case 'tv': return Icons.tv_outlined;
+      case 'hp': return Icons.smartphone_outlined;
+      default: return Icons.inventory_2_outlined;
+    }
+  }
+
+  String _formatTime(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      if (diff.inMinutes < 60) return '${diff.inMinutes} menit lalu';
+      if (diff.inHours < 24) return '${diff.inHours} jam lalu';
+      return '${diff.inDays} hari lalu';
+    } catch (_) {
+      return dateStr;
+    }
   }
 }

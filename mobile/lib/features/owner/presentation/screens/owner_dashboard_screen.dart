@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../shared/dummy_data/dummy_data.dart';
 import '../../../../shared/widgets/chart_widgets.dart';
 import '../../../../shared/widgets/stat_card.dart';
+import '../../models/owner_models.dart';
+import '../providers/owner_provider.dart';
 
 class OwnerDashboardScreen extends ConsumerStatefulWidget {
   const OwnerDashboardScreen({super.key});
@@ -36,42 +37,60 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
-    final branches = ['Semua', ...DummyDataProvider.branches.map((b) => b.name)];
-    final totalLowStock = DummyDataProvider.inventories.fold(0, (s, i) => s + i.lowStockCount);
-    final totalDailySales = DummyDataProvider.salesData.fold(0, (s, d) => s + d.dailySales);
-    final totalRevenue = DummyDataProvider.salesData.fold(0.0, (s, d) => s + d.dailyRevenue);
+    final dashboardAsync = ref.watch(ownerDashboardProvider);
+    final branchesAsync = ref.watch(ownerBranchesProvider);
+    final salesRankingAsync = ref.watch(salesRankingProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
-        onRefresh: () async => setState(() {}),
+        onRefresh: () async {
+          ref.invalidate(ownerDashboardProvider);
+          ref.invalidate(ownerBranchesProvider);
+          ref.invalidate(salesRankingProvider);
+        },
         color: AppColors.ownerColor,
         child: CustomScrollView(
           slivers: [
             _buildHeader(user?.username ?? 'Owner'),
             SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  _buildBranchFilter(branches),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeroMetrics(totalDailySales, totalRevenue, totalLowStock),
-                        const SizedBox(height: 20),
-                        _buildAttendanceCard(),
-                        const SizedBox(height: 20),
-                        _buildRevenueChart(),
-                        const SizedBox(height: 20),
-                        _buildLowStockSection(),
-                        const SizedBox(height: 20),
-                        _buildPerformanceSection(),
-                        const SizedBox(height: 100),
-                      ],
-                    ),
-                  ),
-                ],
+              child: dashboardAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (error, _) => _buildErrorWidget(error.toString()),
+                data: (metrics) {
+                  final branchNames = branchesAsync.when(
+                    data: (branches) => ['Semua', ...branches.map((b) => b.name)],
+                    loading: () => ['Semua'],
+                    error: (_, __) => ['Semua'],
+                  );
+
+                  return Column(
+                    children: [
+                      _buildBranchFilter(branchNames),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeroMetrics(metrics),
+                            const SizedBox(height: 20),
+                            _buildAttendanceCard(metrics),
+                            const SizedBox(height: 20),
+                            _buildBranchPerformanceSection(metrics.branchPerformance),
+                            const SizedBox(height: 20),
+                            _buildRecentActivitySection(metrics.recentActivity),
+                            const SizedBox(height: 20),
+                            _buildPerformanceSection(salesRankingAsync),
+                            const SizedBox(height: 100),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -83,6 +102,42 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
         label: const Text('Tanya AI', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         icon: const Icon(Icons.auto_awesome, color: Colors.white),
         elevation: 8,
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget(String error) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+          const SizedBox(height: 12),
+          Text(
+            'Gagal memuat data',
+            style: AppTextStyles.heading3,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            error,
+            style: AppTextStyles.caption,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              ref.invalidate(ownerDashboardProvider);
+              ref.invalidate(ownerBranchesProvider);
+              ref.invalidate(salesRankingProvider);
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Coba Lagi'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.ownerColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -124,7 +179,6 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Row(children: [
-                        // Logo Tridjaya Elektronik
                         Container(
                           width: 42, height: 42,
                           decoration: BoxDecoration(
@@ -145,11 +199,7 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
                         const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('📬 Tidak ada notifikasi baru')),
-                            );
-                          },
+                          onPressed: () => context.push('/notifications'),
                         ),
                       ]),
                       const SizedBox(height: 8),
@@ -202,21 +252,26 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
     );
   }
 
-  Widget _buildHeroMetrics(int sales, double revenue, int lowStock) {
-    final revStr = revenue >= 1000000
-        ? 'Rp ${(revenue / 1000000).toStringAsFixed(1)}Jt'
-        : 'Rp ${revenue.toInt()}';
+  Widget _buildHeroMetrics(DashboardMetrics metrics) {
+    final revStr = metrics.totalRevenue >= 1000000
+        ? 'Rp ${(metrics.totalRevenue / 1000000).toStringAsFixed(1)}Jt'
+        : 'Rp ${metrics.totalRevenue.toInt()}';
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 16),
       SectionHeader(
-        title: 'Hari Ini',
+        title: 'Ringkasan',
         actionLabel: 'Detail Cabang',
         onAction: () {
-          final selectedBranchId = _selectedBranchIndex == 0
-              ? DummyDataProvider.branches.first.id
-              : DummyDataProvider.branches[_selectedBranchIndex - 1].id;
-          context.push('/owner/branches/$selectedBranchId');
+          final branchesAsync = ref.read(ownerBranchesProvider);
+          branchesAsync.whenData((branches) {
+            if (branches.isNotEmpty) {
+              final selectedBranchId = _selectedBranchIndex == 0
+                  ? branches.first.id
+                  : branches[_selectedBranchIndex - 1].id;
+              context.push('/owner/branches/$selectedBranchId');
+            }
+          });
         },
       ),
       const SizedBox(height: 12),
@@ -229,154 +284,138 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
           )),
           const SizedBox(width: 12),
           Expanded(child: StatCard(
-            title: 'Penjualan', value: '$sales unit',
-            icon: Icons.shopping_bag_outlined, color: AppColors.success,
+            title: 'Total Karyawan', value: '${metrics.totalOrders}',
+            icon: Icons.people_outline_rounded, color: AppColors.success,
           )),
-        ]
+        ],
       ),
       const SizedBox(height: 12),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: StatCard(
-            title: 'Karyawan Hadir', value: '24',
-            subtitle: 'dari 28 total',
-            icon: Icons.people_outline_rounded, color: AppColors.info,
+            title: 'Pending Approval', value: '${metrics.pendingApprovals}',
+            subtitle: 'Perlu ditinjau',
+            icon: Icons.pending_actions_rounded, color: AppColors.warning,
           )),
           const SizedBox(width: 12),
           Expanded(child: StatCard(
-            title: 'Stok Rendah', value: '$lowStock item',
-            subtitle: 'Perlu restock',
-            icon: Icons.warning_amber_outlined, color: AppColors.error,
-            onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('⚠️ $lowStock item stok rendah - Segera lakukan restock!'),
-                duration: const Duration(seconds: 2),
-                backgroundColor: AppColors.error,
-              ),
-            );
-          },
-        )),
-      ]),
+            title: 'Cabang Aktif', value: '${metrics.branchPerformance.length}',
+            subtitle: 'Semua cabang',
+            icon: Icons.store_rounded, color: AppColors.info,
+          )),
+        ],
+      ),
     ]);
   }
 
-  Widget _buildAttendanceCard() {
+  Widget _buildAttendanceCard(DashboardMetrics metrics) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SectionHeader(
-        title: 'Kehadiran Hari Ini',
+        title: 'Performa Cabang',
         actionLabel: 'Detail',
-        onAction: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('📋 Detail Kehadiran: Hadir 24, Terlambat 3, Absen 1, Izin 0'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
+        onAction: () => context.push('/owner/performance'),
       ),
       const SizedBox(height: 12),
-      DonutChartCard(
-        title: 'Status Kehadiran Semua Cabang',
-        centerLabel: 'Total',
-        centerValue: '28',
-        data: const [
-          ChartPieData(label: 'Hadir', value: 24, color: AppColors.success),
-          ChartPieData(label: 'Terlambat', value: 3, color: AppColors.warning),
-          ChartPieData(label: 'Absen', value: 1, color: AppColors.error),
-          ChartPieData(label: 'Izin', value: 0, color: AppColors.textHint),
-        ],
-      ),
+      if (metrics.branchPerformance.isNotEmpty)
+        DonutChartCard(
+          title: 'Pencapaian Target per Cabang',
+          centerLabel: 'Cabang',
+          centerValue: '${metrics.branchPerformance.length}',
+          data: metrics.branchPerformance.map((b) {
+            final color = b.achievementPercentage >= 80
+                ? AppColors.success
+                : b.achievementPercentage >= 50
+                    ? AppColors.warning
+                    : AppColors.error;
+            return ChartPieData(
+              label: b.name,
+              value: b.achievementPercentage > 0 ? b.achievementPercentage : 1,
+              color: color,
+            );
+          }).toList(),
+        )
+      else
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Center(
+            child: Text('Belum ada data performa cabang'),
+          ),
+        ),
     ]);
   }
 
-  Widget _buildRevenueChart() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionHeader(
-        title: 'Pendapatan 7 Hari Terakhir',
-        actionLabel: 'Laporan',
-        onAction: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('📈 Laporan Penjualan 7 Hari: Total 131 unit, Rp 2.342.500.000'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
-      ),
-      const SizedBox(height: 12),
-      LineChartCard(
-        title: 'Tren Penjualan',
-        subtitle: 'Unit terjual per hari',
-        unit: ' unit',
-        xLabels: const ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'],
-        series: [
-          ChartLineData(label: 'Semua Cabang', values: const [12, 18, 14, 22, 19, 25, 21], color: AppColors.ownerColor),
-          ChartLineData(label: 'Cabang Pusat', values: const [5, 7, 6, 9, 8, 11, 9], color: AppColors.success),
-        ],
-      ),
-    ]);
-  }
+  Widget _buildBranchPerformanceSection(List<BranchMetrics> branches) {
+    if (branches.isEmpty) return const SizedBox.shrink();
 
-  Widget _vDivider() => Container(width: 1, height: 40, color: AppColors.divider);
-
-  Widget _buildLowStockSection() {
-    final alerts = [
-      ('Aki GS NS40', 'Cabang Selatan', 5),
-      ('TV Samsung 43"', 'Cabang Pusat', 3),
-      ('HP Xiaomi Note 13', 'Cabang Timur', 2),
-    ];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionHeader(
-        title: 'Alert Stok Rendah',
-        actionLabel: 'Semua',
-        onAction: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('⚠️ Semua Alert Stok Rendah: ${alerts.length} item memerlukan perhatian'),
-              duration: const Duration(seconds: 2),
-              action: SnackBarAction(
-                label: 'Lihat',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('📦 Menampilkan semua item stok rendah...')),
-                  );
-                },
-              ),
-            ),
-          );
-        },
-      ),
+      const SectionHeader(title: 'Revenue per Cabang'),
       const SizedBox(height: 12),
       Container(
         decoration: BoxDecoration(
-          color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm,
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppShadows.sm,
         ),
         child: Column(
-          children: alerts.asMap().entries.map((e) {
-            final i = e.key;
-            final a = e.value;
+          children: branches.asMap().entries.map((entry) {
+            final i = entry.key;
+            final b = entry.value;
+            final revStr = b.revenue >= 1000000
+                ? 'Rp ${(b.revenue / 1000000).toStringAsFixed(1)}Jt'
+                : 'Rp ${b.revenue.toInt()}';
+            final achieveColor = b.achievementPercentage >= 80
+                ? AppColors.success
+                : b.achievementPercentage >= 50
+                    ? AppColors.warning
+                    : AppColors.error;
+
             return Column(children: [
               Padding(
                 padding: const EdgeInsets.all(14),
                 child: Row(children: [
-                  Container(width: 36, height: 36,
-                    decoration: BoxDecoration(color: AppColors.errorBg, borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 18)),
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.ownerColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(b.code,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ownerColor,
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(a.$1, style: AppTextStyles.bodyMedium),
-                    Text(a.$2, style: AppTextStyles.caption),
+                    Text(b.name, style: AppTextStyles.bodyMedium),
+                    Text('${b.orders} karyawan', style: AppTextStyles.caption),
                   ])),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(color: AppColors.errorBg, borderRadius: BorderRadius.circular(8)),
-                    child: Text('${a.$3} unit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.error)),
-                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(revStr, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: achieveColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${b.achievementPercentage.toStringAsFixed(1)}%',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: achieveColor),
+                      ),
+                    ),
+                  ]),
                 ]),
               ),
-              if (i < alerts.length - 1) const Divider(height: 1, indent: 16, endIndent: 16),
+              if (i < branches.length - 1) const Divider(height: 1, indent: 16, endIndent: 16),
             ]);
           }).toList(),
         ),
@@ -384,84 +423,198 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen>
     ]);
   }
 
-  Widget _buildPerformanceSection() {
-    final sales = DummyDataProvider.employees.where((e) => e.role == 'Sales').toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
-    final nonSales = DummyDataProvider.employees.where((e) => e.role != 'Sales').toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
+  Widget _buildRecentActivitySection(List<ActivityItem> activities) {
+    if (activities.isEmpty) return const SizedBox.shrink();
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionHeader(
-        title: 'Top Performer',
-        actionLabel: 'Semua',
-        onAction: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('👥 Membuka detail semua Top Performer...'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-          Future.delayed(const Duration(milliseconds: 500), () {
-            context.go('/owner/performance');
-          });
-        },
-      ),
+      const SectionHeader(title: 'Aktivitas Terbaru'),
       const SizedBox(height: 12),
       Container(
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), boxShadow: AppShadows.sm),
-        child: Column(children: [
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.divider)),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppColors.ownerColor,
-              unselectedLabelColor: AppColors.textSecondary,
-              indicatorColor: AppColors.ownerColor,
-              indicatorSize: TabBarIndicatorSize.tab,
-              labelStyle: AppTextStyles.bodyMedium,
-              tabs: const [Tab(text: 'Sales'), Tab(text: 'Non-Sales')],
-            ),
-          ),
-          SizedBox(
-            height: 240,
-            child: TabBarView(controller: _tabController, children: [
-              _rankList(sales.take(4).toList()),
-              _rankList(nonSales.take(4).toList()),
-            ]),
-          ),
-        ]),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppShadows.sm,
+        ),
+        child: Column(
+          children: activities.take(5).toList().asMap().entries.map((entry) {
+            final i = entry.key;
+            final a = entry.value;
+            final icon = _getActivityIcon(a.iconType);
+            final color = _getActivityColor(a.iconType);
+
+            return Column(children: [
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: color, size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(a.userName, style: AppTextStyles.bodyMedium),
+                    Text(a.details, style: AppTextStyles.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ])),
+                  Text(
+                    _formatTimestamp(a.timestamp),
+                    style: AppTextStyles.caption.copyWith(fontSize: 11),
+                  ),
+                ]),
+              ),
+              if (i < activities.length - 1 && i < 4) const Divider(height: 1, indent: 16, endIndent: 16),
+            ]);
+          }).toList(),
+        ),
       ),
     ]);
   }
 
-  Widget _rankList(List<DummyEmployee> emps) {
-    final medals = ['🥇', '🥈', '🥉', ''];
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: emps.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, indent: 60),
-      itemBuilder: (_, i) {
-        final e = emps[i];
-        final branch = e.branchId == 'b1' ? 'Pusat' : e.branchId == 'b2' ? 'Selatan' : 'Timur';
-        final scoreColor = e.score >= 85 ? AppColors.success : e.score >= 70 ? AppColors.warning : AppColors.error;
-        return ListTile(
-          dense: true,
-          leading: Container(width: 36, height: 36,
-            decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(10)),
-            child: Center(child: Text(medals[i].isNotEmpty ? medals[i] : '${i + 1}',
-                style: TextStyle(fontSize: medals[i].isNotEmpty ? 18 : 13, fontWeight: FontWeight.w700, color: AppColors.textSecondary)))),
-          title: Text(e.name, style: AppTextStyles.bodyMedium),
-          subtitle: Text('${e.role} • $branch', style: AppTextStyles.caption),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: scoreColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text('${e.score}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scoreColor)),
+  Widget _buildPerformanceSection(AsyncValue<List<SalesRanking>> salesRankingAsync) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SectionHeader(
+        title: 'Top Performer',
+        actionLabel: 'Semua',
+        onAction: () => context.push('/owner/performance'),
+      ),
+      const SizedBox(height: 12),
+      salesRankingAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
           ),
-        );
-      },
-    );
+          child: Text('Gagal memuat ranking: $error', style: AppTextStyles.caption),
+        ),
+        data: (rankings) {
+          if (rankings.isEmpty) {
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Center(child: Text('Belum ada data ranking')),
+            );
+          }
+
+          return Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppShadows.sm,
+            ),
+            child: Column(
+              children: rankings.take(5).toList().asMap().entries.map((entry) {
+                final i = entry.key;
+                final r = entry.value;
+                final medals = ['🥇', '🥈', '🥉', '', ''];
+                final scoreColor = r.achievementPercentage >= 100
+                    ? AppColors.success
+                    : r.achievementPercentage >= 80
+                        ? AppColors.warning
+                        : AppColors.error;
+
+                return Column(children: [
+                  ListTile(
+                    dense: true,
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          i < 3 ? medals[i] : '${r.rank}',
+                          style: TextStyle(
+                            fontSize: i < 3 ? 18 : 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    title: Text(r.fullName, style: AppTextStyles.bodyMedium),
+                    subtitle: Text('Sales • ${r.branchName}', style: AppTextStyles.caption),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: scoreColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${r.achievementPercentage.toStringAsFixed(0)}%',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: scoreColor),
+                      ),
+                    ),
+                  ),
+                  if (i < rankings.length - 1 && i < 4) const Divider(height: 1, indent: 60),
+                ]);
+              }).toList(),
+            ),
+          );
+        },
+      ),
+    ]);
+  }
+
+  IconData _getActivityIcon(String iconType) {
+    switch (iconType) {
+      case 'login':
+        return Icons.login_rounded;
+      case 'report':
+        return Icons.description_rounded;
+      case 'attendance':
+        return Icons.access_time_rounded;
+      case 'inventory':
+        return Icons.inventory_2_rounded;
+      case 'approval':
+        return Icons.check_circle_rounded;
+      default:
+        return Icons.circle_rounded;
+    }
+  }
+
+  Color _getActivityColor(String iconType) {
+    switch (iconType) {
+      case 'login':
+        return AppColors.info;
+      case 'report':
+        return AppColors.success;
+      case 'attendance':
+        return AppColors.primary;
+      case 'inventory':
+        return AppColors.warning;
+      case 'approval':
+        return AppColors.success;
+      default:
+        return AppColors.textHint;
+    }
+  }
+
+  String _formatTimestamp(String timestamp) {
+    try {
+      final dt = DateTime.parse(timestamp);
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+
+      if (diff.inMinutes < 60) {
+        return '${diff.inMinutes} menit lalu';
+      } else if (diff.inHours < 24) {
+        return '${diff.inHours} jam lalu';
+      } else if (diff.inDays < 7) {
+        return '${diff.inDays} hari lalu';
+      } else {
+        return '${dt.day}/${dt.month}/${dt.year}';
+      }
+    } catch (_) {
+      return timestamp;
+    }
   }
 }

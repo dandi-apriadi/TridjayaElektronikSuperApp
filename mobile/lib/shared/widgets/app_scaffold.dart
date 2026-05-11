@@ -29,6 +29,13 @@ List<_NavItem> _navItemsFor(UserRole role, String baseRoute) {
         _NavItem('Verifikasi', Icons.fact_check_outlined, Icons.fact_check_rounded, '/jobdesk/pic'),
         _NavItem('Profil', Icons.person_outline_rounded, Icons.person_rounded, '/kepala-cabang/profile'),
       ];
+    case UserRole.picPelaporan:
+      return [
+        _NavItem('Beranda', Icons.home_outlined, Icons.home_rounded, '/jobdesk/pic'),
+        _NavItem('Verifikasi', Icons.fact_check_outlined, Icons.fact_check_rounded, '/jobdesk/pic-verification'),
+        _NavItem('Laporan', Icons.analytics_outlined, Icons.analytics_rounded, '/jobdesk/report?role=pic_pelaporan'),
+        _NavItem('Profil', Icons.person_outline_rounded, Icons.person_rounded, '/kepala-cabang/profile'),
+      ];
     case UserRole.admin:
       return [
         _NavItem('Beranda', Icons.home_outlined, Icons.home_rounded, '/admin'),
@@ -82,6 +89,7 @@ Color _roleColor(UserRole role) {
     case UserRole.superAdmin: return const Color(0xFF1A1A2E); // Dark admin color
     case UserRole.owner: return AppColors.ownerColor;
     case UserRole.kepalaCabang: return AppColors.kepalaCabangColor;
+    case UserRole.picPelaporan: return AppColors.kepalaCabangColor;
     case UserRole.admin: return AppColors.adminColor;
     case UserRole.sales: return AppColors.salesColor;
     case UserRole.driver: return AppColors.driverColor;

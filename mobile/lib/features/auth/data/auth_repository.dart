@@ -126,6 +126,9 @@ class AuthRepository {
       case 'kepalacabang':
       case 'kepala_cabang':
         return 'kepalaCabang';
+      case 'pic_pelaporan':
+      case 'picpelaporan':
+        return 'picPelaporan';
       case 'admin':
         return 'admin';
       case 'sales':

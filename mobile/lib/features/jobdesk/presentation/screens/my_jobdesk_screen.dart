@@ -4,17 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/models/leave_request_model.dart';
 import '../../../../shared/providers/leave_request_provider.dart';
-import '../../data/jobdesk_dummy_data.dart';
 import '../../models/jobdesk_models.dart';
+import '../providers/jobdesk_provider.dart';
 
 /// ============================================================
 /// 👤 MY JOB DESK SCREEN - Dashboard Job Desk Karyawan
-/// ============================================================
-/// Screen utama untuk karyawan melihat:
-/// - Progress ring hari ini
-/// - List tugas yang harus dikerjakan
-/// - Status submission
-/// - Riwayat pengisian
 /// ============================================================
 
 class MyJobDeskScreen extends ConsumerStatefulWidget {
@@ -25,42 +19,11 @@ class MyJobDeskScreen extends ConsumerStatefulWidget {
 }
 
 class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
-  late JobDeskTemplate _template;
-  late List<JobDeskSubmission> _todaySubmissions;
-
-  @override
-  void initState() {
-    super.initState();
-    // Default, will be updated in build based on user role
-    _template = JobDeskDummyData.salesTemplate;
-    _todaySubmissions = JobDeskDummyData.getDummySubmissionsForToday(_template);
-  }
-
-  void _updateTemplateForRole(String role) {
-    final normalizedRole = role.toLowerCase().replaceAll(' ', '_');
-    final newTemplate = JobDeskDummyData.getTemplateByRole(normalizedRole);
-    if (newTemplate.id != _template.id) {
-      setState(() {
-        _template = newTemplate;
-        _todaySubmissions = JobDeskDummyData.getDummySubmissionsForToday(_template);
-      });
-    }
-  }
-
-  // TODO: Get actual user ID from auth provider
-  String get _currentUserId => 'emp001';
-  
-  int get _completedCount => _todaySubmissions.where((s) => s.isCompleted || s.isVerified).length;
-  int get _pendingCount => _todaySubmissions.where((s) => s.isPending).length;
-  double get _completionRate => _todaySubmissions.isEmpty 
-      ? 0 
-      : (_completedCount / _todaySubmissions.length) * 100;
+  String _filter = 'all'; // all, pending, completed
 
   @override
   Widget build(BuildContext context) {
-    // Watch for active leave today
-    final activeLeave = ref.watch(activeLeaveTodayProvider(_currentUserId));
-    final hasActiveLeave = activeLeave != null;
+    final assignmentsAsync = ref.watch(myJobdeskAssignmentsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -80,9 +43,31 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
           ),
         ],
       ),
+      body: assignmentsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (assignments) {
+          return _buildBody(assignments);
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody(List<JobDeskAssignment> assignments) {
+    // Watch for active leave today (using first assignment userId or dummy)
+    final currentUserId = assignments.isNotEmpty ? assignments.first.userId : 'emp001';
+    final activeLeave = ref.watch(activeLeaveTodayProvider(currentUserId));
+    final hasActiveLeave = activeLeave != null;
+
+    final filteredAssignments = _applyFilter(assignments);
+    final completedCount = assignments.where((a) => a.isCompleted).length;
+    final pendingCount = assignments.where((a) => a.isPending).length;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
       body: RefreshIndicator(
         onRefresh: () async {
-          setState(() {});
+          ref.invalidate(myJobdeskAssignmentsProvider);
         },
         color: AppColors.primary,
         child: CustomScrollView(
@@ -90,13 +75,13 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
             // Show Leave Banner if has active leave
             if (hasActiveLeave)
               SliverToBoxAdapter(
-                child: _buildLeaveBanner(activeLeave),
+                child: _buildLeaveBanner(activeLeave!),
               ),
 
             // Progress Header (only show if no active leave)
             if (!hasActiveLeave)
               SliverToBoxAdapter(
-                child: _buildProgressHeader(),
+                child: _buildProgressHeader(assignments),
               ),
 
             // Filter Chips (only show if no active leave)
@@ -108,7 +93,11 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
             // Show "No Tasks" message if has active leave
             if (hasActiveLeave)
               SliverToBoxAdapter(
-                child: _buildNoTasksMessage(activeLeave),
+                child: _buildNoTasksMessage(activeLeave!),
+              )
+            else if (filteredAssignments.isEmpty)
+              SliverToBoxAdapter(
+                child: _buildEmptyState(),
               )
             else
               // Task List
@@ -117,10 +106,10 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final submission = _todaySubmissions[index];
-                      return _buildTaskCard(submission);
+                      final assignment = filteredAssignments[index];
+                      return _buildTaskCard(assignment);
                     },
-                    childCount: _todaySubmissions.length,
+                    childCount: filteredAssignments.length,
                   ),
                 ),
               ),
@@ -132,19 +121,34 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
           ],
         ),
       ),
-      // Hide FAB if has active leave
-      floatingActionButton: !hasActiveLeave && _pendingCount > 0
+      floatingActionButton: !hasActiveLeave && pendingCount > 0
           ? FloatingActionButton.extended(
               onPressed: () => context.push('/jobdesk/today'),
               backgroundColor: AppColors.primary,
               icon: const Icon(Icons.edit_note_rounded),
-              label: Text('Isi Sekarang ($_pendingCount)'),
+              label: Text('Isi Sekarang ($pendingCount)'),
             )
           : null,
     );
   }
+
+  List<JobDeskAssignment> _applyFilter(List<JobDeskAssignment> assignments) {
+    if (_filter == 'pending') {
+      return assignments.where((a) => a.isPending).toList();
+    }
+    if (_filter == 'completed') {
+      return assignments.where((a) => a.isCompleted).toList();
+    }
+    return assignments;
+  }
   
-  Widget _buildProgressHeader() {
+  Widget _buildProgressHeader(List<JobDeskAssignment> assignments) {
+    final completedCount = assignments.where((a) => a.isCompleted).length;
+    final pendingCount = assignments.where((a) => a.isPending).length;
+    final completionRate = assignments.isEmpty
+        ? 0.0
+        : (completedCount / assignments.length) * 100;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -166,7 +170,7 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
                   fit: StackFit.expand,
                   children: [
                     CircularProgressIndicator(
-                      value: _completionRate / 100,
+                      value: completionRate / 100,
                       strokeWidth: 10,
                       backgroundColor: Colors.white.withOpacity(0.2),
                       valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
@@ -176,7 +180,7 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            '${_completionRate.toInt()}%',
+                            '${completionRate.toInt()}%',
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w800,
@@ -204,9 +208,9 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _template.name,
-                      style: const TextStyle(
+                    const Text(
+                      'Job Desk Hari Ini',
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -216,14 +220,14 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
                     _buildStatRow(
                       icon: Icons.check_circle_outline,
                       label: 'Selesai',
-                      value: '$_completedCount/${_todaySubmissions.length}',
+                      value: '$completedCount/${assignments.length}',
                       color: Colors.white,
                     ),
                     const SizedBox(height: 6),
                     _buildStatRow(
                       icon: Icons.pending_outlined,
                       label: 'Pending',
-                      value: '$_pendingCount',
+                      value: '$pendingCount',
                       color: Colors.white70,
                     ),
                   ],
@@ -290,9 +294,7 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
       ],
     );
   }
-  
-  String _filter = 'all'; // all, pending, completed
-  
+
   Widget _buildFilterChips() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -484,25 +486,21 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
     }
   }
   
-  Widget _buildTaskCard(JobDeskSubmission submission) {
-    final task = submission.taskItem!;
-    final isCompleted = submission.isCompleted || submission.isVerified;
-    final isPending = submission.isPending;
-    final isRejected = submission.isRejected;
-    
-    // Filter
-    if (_filter == 'pending' && !isPending) return const SizedBox.shrink();
-    if (_filter == 'completed' && isPending) return const SizedBox.shrink();
-    
+  Widget _buildTaskCard(JobDeskAssignment assignment) {
+    final isCompleted = assignment.isCompleted;
+    final isPending = assignment.isPending;
+    final isRejected = assignment.isRejected;
+    final isUrgent = assignment.priority == 'urgent' || assignment.priority == 'high';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: task.isHighlighted ? const Color(0xFFFFF9E6) : AppColors.surface,
+        color: isUrgent ? const Color(0xFFFFF9E6) : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: task.isHighlighted 
-              ? const Color(0xFFFFD93D) 
-              : isRejected 
+          color: isUrgent
+              ? const Color(0xFFFFD93D)
+              : isRejected
                   ? AppColors.error.withOpacity(0.3)
                   : isCompleted
                       ? AppColors.success.withOpacity(0.3)
@@ -510,7 +508,7 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
         ),
       ),
       child: InkWell(
-        onTap: () => _navigateToTaskDetail(submission),
+        onTap: () => _navigateToTaskDetail(assignment),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -519,7 +517,7 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
             children: [
               Row(
                 children: [
-                  // Task Number Badge
+                  // Status Badge Circle
                   Container(
                     width: 28,
                     height: 28,
@@ -531,59 +529,59 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
                       child: _getStatusIcon(isCompleted, isPending, isRejected),
                     ),
                   ),
-                  
+
                   const SizedBox(width: 12),
-                  
-                  // Task Type Badge
-                  if (task.requiresProof)
+
+                  // Attachment Badge
+                  if (assignment.hasAttachments)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
-                        color: AppColors.warning.withOpacity(0.1),
+                        color: AppColors.info.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            _getProofIcon(task.proofType),
+                            Icons.attachment_outlined,
                             size: 12,
-                            color: AppColors.warning,
+                            color: AppColors.info,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Bukti',
+                            'Attachment',
                             style: TextStyle(
                               fontSize: 10,
-                              color: AppColors.warning,
+                              color: AppColors.info,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  
-                  // Mandatory Badge
-                  if (task.isMandatory)
+
+                  // Priority Badge
+                  if (assignment.priority != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.error.withOpacity(0.1),
+                        color: _priorityColor(assignment.priority!).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        'Wajib',
+                        _capitalize(assignment.priority!),
                         style: TextStyle(
                           fontSize: 10,
-                          color: AppColors.error,
+                          color: _priorityColor(assignment.priority!),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  
+
                   const Spacer(),
-                  
+
                   // Status Badge
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -602,12 +600,12 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 12),
-              
-              // Task Name
+
+              // Task Title
               Text(
-                task.taskName,
+                assignment.title ?? 'Tugas',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: isCompleted ? FontWeight.w500 : FontWeight.w700,
@@ -615,54 +613,43 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
                   decoration: isCompleted ? TextDecoration.lineThrough : null,
                 ),
               ),
-              
+
               // Description
-              if (task.description != null) ...[
+              if (assignment.description != null && assignment.description!.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  task.description!,
+                  assignment.description!,
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textHint,
                   ),
                 ),
               ],
-              
-              // Target Value
-              if (task.type == JobDeskTaskType.counter && task.targetValue != null) ...[
+
+              // Due Date
+              if (assignment.dueDate != null) ...[
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Icon(
-                      Icons.flag_outlined,
+                      Icons.calendar_today_outlined,
                       size: 14,
                       color: AppColors.textHint,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Target: ${task.targetValue} ${task.targetUnit ?? ''}',
+                      'Deadline: ${_formatDate(assignment.dueDate!)}',
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textHint,
                       ),
                     ),
-                    if (submission.actualValue != null) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '• Tercapai: ${submission.actualValue}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.success,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ],
-              
+
               // Rejection Reason
-              if (isRejected && submission.rejectionReason != null) ...[
+              if (isRejected && assignment.rejectionReason != null) ...[
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.all(8),
@@ -680,7 +667,7 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          submission.rejectionReason!,
+                          assignment.rejectionReason!,
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.error,
@@ -711,14 +698,25 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
     if (completed) {
       return Icon(Icons.check, size: 14, color: AppColors.success);
     }
-    return Text(
-      '${_todaySubmissions.indexWhere((s) => s.taskItemId == s.taskItemId) + 1}',
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        color: AppColors.warning,
-      ),
-    );
+    return Icon(Icons.circle_outlined, size: 14, color: AppColors.warning);
+  }
+
+  Color _priorityColor(String priority) {
+    switch (priority.toLowerCase()) {
+      case 'urgent': return AppColors.error;
+      case 'high': return AppColors.warning;
+      case 'normal': return AppColors.info;
+      default: return AppColors.textHint;
+    }
+  }
+
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
   
   String _getStatusText(bool completed, bool pending, bool rejected) {
@@ -727,23 +725,48 @@ class _MyJobDeskScreenState extends ConsumerState<MyJobDeskScreen> {
     return 'Pending';
   }
   
-  IconData _getProofIcon(JobDeskProofType? type) {
-    switch (type) {
-      case JobDeskProofType.photo:
-        return Icons.camera_alt_outlined;
-      case JobDeskProofType.document:
-        return Icons.description_outlined;
-      case JobDeskProofType.link:
-        return Icons.link_outlined;
-      case JobDeskProofType.screenshot:
-        return Icons.screenshot_outlined;
-      default:
-        return Icons.attachment_outlined;
-    }
-  }
   
-  void _navigateToTaskDetail(JobDeskSubmission submission) {
-    // Navigate to task submission screen with photo upload
-    context.push('/jobdesk/submit/${submission.taskItemId}?submission=${submission.id}');
+  void _navigateToTaskDetail(JobDeskAssignment assignment) {
+    // Navigate to task submission screen
+    context.push('/jobdesk/submit/${assignment.id}');
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.task_alt_outlined,
+            size: 64,
+            color: AppColors.textHint,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Tidak ada tugas',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Semua tugas sudah selesai atau tidak ada job desk untuk hari ini.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -61,7 +61,7 @@ class _WorkReportScreenState extends ConsumerState<WorkReportScreen>
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
-    final isApprover = user?.role == UserRole.kepalaCabang || user?.role == UserRole.owner;
+    final isApprover = user?.role == UserRole.kepalaCabang || user?.role == UserRole.picPelaporan || user?.role == UserRole.owner;
 
     return Scaffold(
       backgroundColor: AppColors.background,

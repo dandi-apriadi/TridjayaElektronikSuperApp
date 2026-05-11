@@ -5,7 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../shared/dummy_data/dummy_data.dart';
+import '../../models/driver_models.dart';
+import '../providers/driver_provider.dart';
 import '../../../../shared/widgets/stat_card.dart';
 
 class DriverDashboardScreen extends ConsumerWidget {
@@ -14,78 +15,85 @@ class DriverDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final deliveries = DummyDataProvider.deliveries;
-    final pending = deliveries.where((d) => d.status == 'Pending').length;
-    final inProgress = deliveries.where((d) => d.status == 'InProgress').length;
-    final completed = deliveries.where((d) => d.status == 'Completed').length;
-
     final now = DateTime.now();
     final days = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     final months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    final dashboardAsync = ref.watch(driverDashboardProvider);
+    final deliveriesAsync = ref.watch(deliveriesProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
-        onRefresh: () async {},
+        onRefresh: () async {
+          ref.refresh(driverDashboardProvider);
+          ref.refresh(deliveriesProvider);
+        },
         color: AppColors.driverColor,
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 160,
-              pinned: true,
-              elevation: 0,
-              backgroundColor: AppColors.driverColor,
-              systemOverlayStyle: SystemUiOverlayStyle.light,
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(colors: AppColors.driverGradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  ),
-                  child: Stack(children: [
-                    Positioned(top: -20, right: -40,
-                      child: Container(width: 160, height: 160,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.06)))),
-                    SafeArea(child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
-                        Row(children: [
-                          Container(width: 42, height: 42,
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                            child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 22)),
-                          const Spacer(),
-                          IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white), onPressed: () {}),
+        child: dashboardAsync.when(
+          data: (metrics) => CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 160,
+                pinned: true,
+                elevation: 0,
+                backgroundColor: AppColors.driverColor,
+                systemOverlayStyle: SystemUiOverlayStyle.light,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(colors: AppColors.driverGradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    ),
+                    child: Stack(children: [
+                      Positioned(top: -20, right: -40,
+                        child: Container(width: 160, height: 160,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.06)))),
+                      SafeArea(child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
+                          Row(children: [
+                            Container(width: 42, height: 42,
+                              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                              child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 22)),
+                            const Spacer(),
+                            IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white), onPressed: () {}),
+                          ]),
+                          const SizedBox(height: 8),
+                          Text('Halo, ${user?.username ?? 'Driver'} 👋', style: AppTextStyles.heading3.copyWith(color: Colors.white)),
+                          const SizedBox(height: 2),
+                          Text('${days[now.weekday]}, ${now.day} ${months[now.month]} ${now.year}', style: AppTextStyles.caption.copyWith(color: Colors.white.withOpacity(0.7))),
                         ]),
-                        const SizedBox(height: 8),
-                        Text('Halo, ${user?.username ?? 'Driver'} 👋', style: AppTextStyles.heading3.copyWith(color: Colors.white)),
-                        const SizedBox(height: 2),
-                        Text('${days[now.weekday]}, ${now.day} ${months[now.month]} ${now.year}', style: AppTextStyles.caption.copyWith(color: Colors.white.withOpacity(0.7))),
-                      ]),
-                    )),
+                      )),
+                    ]),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(child: GradientStatCard(title: 'Dalam Proses', value: '${metrics.inProgressDeliveries}', icon: Icons.local_shipping_rounded, gradient: AppColors.driverGradient)),
+                      const SizedBox(width: 12),
+                      Expanded(child: StatCard(title: 'Menunggu', value: '${metrics.pendingDeliveries}', icon: Icons.schedule_rounded, color: AppColors.warning)),
+                      const SizedBox(width: 12),
+                      Expanded(child: StatCard(title: 'Selesai', value: '${metrics.completedDeliveries}', icon: Icons.check_circle_rounded, color: AppColors.success)),
+                    ]),
+                    const SizedBox(height: 16),
+                    _buildAttendanceCard(context),
+                    const SizedBox(height: 20),
+                    deliveriesAsync.when(
+                      data: (deliveries) => _buildDeliveryList(context, deliveries),
+                      loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+                      error: (error, _) => _buildErrorSection(error.toString()),
+                    ),
+                    const SizedBox(height: 100),
                   ]),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // Status summary
-                  Row(children: [
-                    Expanded(child: GradientStatCard(title: 'Dalam Proses', value: '$inProgress', icon: Icons.local_shipping_rounded, gradient: AppColors.driverGradient)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: 'Menunggu', value: '$pending', icon: Icons.schedule_rounded, color: AppColors.warning)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: 'Selesai', value: '$completed', icon: Icons.check_circle_rounded, color: AppColors.success)),
-                  ]),
-                  const SizedBox(height: 16),
-                  _buildAttendanceCard(context),
-                  const SizedBox(height: 20),
-                  _buildDeliveryList(context, deliveries),
-                  const SizedBox(height: 100),
-                ]),
-              ),
-            ),
-          ],
+            ],
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text('Gagal memuat dashboard: $error')),
         ),
       ),
     );
@@ -128,7 +136,7 @@ class DriverDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDeliveryList(BuildContext context, List<DummyDelivery> deliveries) {
+  Widget _buildDeliveryList(BuildContext context, List<Delivery> deliveries) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SectionHeader(title: 'Jadwal Pengiriman (${deliveries.length})'),
       const SizedBox(height: 12),
@@ -136,15 +144,22 @@ class DriverDashboardScreen extends ConsumerWidget {
     ]);
   }
 
-  Widget _buildDeliveryCard(BuildContext context, DummyDelivery delivery, int index) {
-    final statusColor = delivery.status == 'Completed'
+  Widget _buildDeliveryCard(BuildContext context, Delivery delivery, int index) {
+    final normalizedStatus = delivery.status.toLowerCase();
+    final statusColor = normalizedStatus == 'completed'
         ? AppColors.success
-        : delivery.status == 'InProgress'
+        : normalizedStatus == 'in_progress'
             ? AppColors.driverColor
-            : delivery.status == 'Failed'
+            : normalizedStatus == 'failed'
                 ? AppColors.error
                 : AppColors.warning;
-    final statusLabel = delivery.status == 'InProgress' ? 'Proses' : delivery.status;
+    final statusLabel = normalizedStatus == 'in_progress'
+        ? 'Proses'
+        : normalizedStatus == 'completed'
+            ? 'Selesai'
+            : normalizedStatus == 'failed'
+                ? 'Gagal'
+                : 'Menunggu';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -182,7 +197,7 @@ class DriverDashboardScreen extends ConsumerWidget {
           Row(children: [
             const Icon(Icons.access_time_outlined, color: AppColors.textHint, size: 16),
             const SizedBox(width: 8),
-            Text('Jadwal: ${delivery.scheduledTime}', style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600)),
+            Text('Jadwal: ${delivery.scheduledTime ?? '-'}', style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600)),
           ]),
           const SizedBox(height: 14),
           Row(children: [
@@ -202,7 +217,7 @@ class DriverDashboardScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            if (delivery.status != 'Completed') ...[
+            if (normalizedStatus != 'completed') ...[
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
@@ -234,7 +249,7 @@ class DriverDashboardScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Kiriman: ${delivery.item}',
+              'Kiriman: ${delivery.customerName}',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 16),
@@ -321,6 +336,19 @@ class DriverDashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildErrorSection(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppShadows.sm,
+      ),
+      child: Text(message, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.error)),
     );
   }
 }

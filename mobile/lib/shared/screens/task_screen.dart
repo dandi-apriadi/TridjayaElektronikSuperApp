@@ -38,7 +38,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
-    final canCreate = user?.role == UserRole.kepalaCabang || user?.role == UserRole.owner;
+    final canCreate = user?.role == UserRole.kepalaCabang || user?.role == UserRole.picPelaporan || user?.role == UserRole.owner;
 
     var tasks = DummyDataProvider.tasks;
     if (_selectedStatus != 'Semua') {

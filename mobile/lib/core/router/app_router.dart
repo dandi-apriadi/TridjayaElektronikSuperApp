@@ -431,6 +431,8 @@ String _dashboardRoute(UserRole role) {
       return '/owner';
     case UserRole.kepalaCabang:
       return '/kepala-cabang';
+    case UserRole.picPelaporan:
+      return '/jobdesk/pic';
     case UserRole.admin:
       return '/admin';
     case UserRole.sales:
@@ -450,6 +452,9 @@ UserRole _parseRole(String roleStr) {
     case 'kepalacabang':
     case 'kepala_cabang':
       return UserRole.kepalaCabang;
+    case 'pic_pelaporan':
+    case 'picpelaporan':
+      return UserRole.picPelaporan;
     case 'admin':
       return UserRole.admin;
     case 'sales':

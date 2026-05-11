@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../shared/dummy_data/dummy_data.dart';
+import '../../models/sales_models.dart';
+import '../providers/sales_provider.dart';
 import '../../../../shared/widgets/chart_widgets.dart';
 import '../../../../shared/widgets/stat_card.dart';
 
@@ -14,18 +15,12 @@ class SalesDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final prospects = DummyDataProvider.prospects;
-    final newCount = prospects.where((p) => p.status == 'New').length;
-    final contactedCount = prospects.where((p) => p.status == 'Contacted').length;
-    final negotiationCount = prospects.where((p) => p.status == 'Negotiation').length;
-    final closedCount = prospects.where((p) => p.status == 'Closed').length;
-    final lostCount = prospects.where((p) => p.status == 'Lost').length;
-
     final now = DateTime.now();
     final days = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     final months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    const achieved = 8;
-    const target = 15;
+    final dashboardAsync = ref.watch(salesDashboardProvider);
+    final prospectsAsync = ref.watch(prospectsProvider);
+    final campaignsAsync = ref.watch(campaignsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -36,114 +31,132 @@ class SalesDashboardScreen extends ConsumerWidget {
         backgroundColor: AppColors.salesColor,
       ),
       body: RefreshIndicator(
-        onRefresh: () async {},
+        onRefresh: () async {
+          ref.refresh(salesDashboardProvider);
+          ref.refresh(prospectsProvider);
+          ref.refresh(campaignsProvider);
+        },
         color: AppColors.salesColor,
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 190,
-              pinned: true,
-              elevation: 0,
-              backgroundColor: AppColors.salesColor,
-              systemOverlayStyle: SystemUiOverlayStyle.light,
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(colors: AppColors.salesGradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
-                  ),
-                  child: Stack(children: [
-                    Positioned(top: -20, right: -40,
-                      child: Container(width: 160, height: 160,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.06)))),
-                    SafeArea(child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 16, 20),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
-                        Row(children: [
-                          Container(width: 42, height: 42,
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                            child: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 22)),
-                          const Spacer(),
-                          IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white), onPressed: () {}),
-                        ]),
-                        const SizedBox(height: 8),
-                        Text('Halo, ${user?.username ?? 'Sales'} 👋', style: AppTextStyles.heading3.copyWith(color: Colors.white)),
-                        const SizedBox(height: 2),
-                        Text('${days[now.weekday]}, ${now.day} ${months[now.month]}', style: AppTextStyles.caption.copyWith(color: Colors.white.withOpacity(0.7))),
-                        const SizedBox(height: 14),
-                        // Inline target bar
-                        Row(children: [
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('Target: $achieved/$target unit', style: AppTextStyles.caption.copyWith(color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 6),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: achieved / target,
-                                backgroundColor: Colors.white24,
-                                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                                minHeight: 6,
+        child: dashboardAsync.when(
+          data: (metrics) => CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 190,
+                pinned: true,
+                elevation: 0,
+                backgroundColor: AppColors.salesColor,
+                systemOverlayStyle: SystemUiOverlayStyle.light,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(colors: AppColors.salesGradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    ),
+                    child: Stack(children: [
+                      Positioned(top: -20, right: -40,
+                        child: Container(width: 160, height: 160,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.06)))),
+                      SafeArea(child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 16, 20),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
+                          Row(children: [
+                            Container(width: 42, height: 42,
+                              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                              child: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 22)),
+                            const Spacer(),
+                            IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white), onPressed: () {}),
+                          ]),
+                          const SizedBox(height: 8),
+                          Text('Halo, ${user?.username ?? 'Sales'} 👋', style: AppTextStyles.heading3.copyWith(color: Colors.white)),
+                          const SizedBox(height: 2),
+                          Text('${days[now.weekday]}, ${now.day} ${months[now.month]}', style: AppTextStyles.caption.copyWith(color: Colors.white.withOpacity(0.7))),
+                          const SizedBox(height: 14),
+                          Row(children: [
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('Target: ${metrics.monthlyAchieved}/${metrics.monthlyTarget} unit', style: AppTextStyles.caption.copyWith(color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: metrics.monthlyTarget > 0 ? metrics.monthlyAchieved / metrics.monthlyTarget : 0,
+                                  backgroundColor: Colors.white24,
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                  minHeight: 6,
+                                ),
                               ),
-                            ),
-                          ])),
-                          const SizedBox(width: 12),
-                          Text('${((achieved / target) * 100).toStringAsFixed(0)}%',
-                              style: AppTextStyles.heading3.copyWith(color: Colors.white)),
+                            ])),
+                            const SizedBox(width: 12),
+                            Text('${metrics.conversionRate.toStringAsFixed(0)}%',
+                                style: AppTextStyles.heading3.copyWith(color: Colors.white)),
+                          ]),
                         ]),
-                      ]),
-                    )),
+                      )),
+                    ]),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(child: GradientStatCard(title: 'Total Prospek', value: '${metrics.totalProspects}', icon: Icons.people_outline_rounded, gradient: AppColors.salesGradient)),
+                      const SizedBox(width: 12),
+                      Expanded(child: StatCard(title: 'Tutup Bulan Ini', value: '${metrics.monthlyAchieved}', icon: Icons.handshake_outlined, color: AppColors.success)),
+                    ]),
+                    const SizedBox(height: 20),
+                    _buildPipelineSection(metrics.prospectsByStatus),
+                    const SizedBox(height: 20),
+                    prospectsAsync.when(
+                      data: (prospects) => _buildFollowUps(context, prospects),
+                      loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+                      error: (error, _) => _buildErrorSection(error.toString()),
+                    ),
+                    const SizedBox(height: 20),
+                    prospectsAsync.when(
+                      data: (prospects) => _buildProspectList(context, prospects),
+                      loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+                      error: (error, _) => _buildErrorSection(error.toString()),
+                    ),
+                    const SizedBox(height: 20),
+                    campaignsAsync.when(
+                      data: (campaigns) => _buildCampaignSummary(context, campaigns),
+                      loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+                      error: (error, _) => _buildErrorSection(error.toString()),
+                    ),
+                    const SizedBox(height: 100),
                   ]),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // Quick stats
-                  Row(children: [
-                    Expanded(child: GradientStatCard(title: 'Total Prospek', value: '${prospects.length}', icon: Icons.people_outline_rounded, gradient: AppColors.salesGradient)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: 'Tutup Bulan Ini', value: '$closedCount', icon: Icons.handshake_outlined, color: AppColors.success)),
-                  ]),
-                  const SizedBox(height: 20),
-                  _buildPipelineSection(newCount, contactedCount, negotiationCount, closedCount, lostCount),
-                  const SizedBox(height: 20),
-                  _buildFollowUps(context),
-                  const SizedBox(height: 20),
-                  _buildProspectList(context, prospects),
-                  const SizedBox(height: 20),
-                  _buildCampaignSummary(context),
-                  const SizedBox(height: 100),
-                ]),
-              ),
-            ),
-          ],
+            ],
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text('Gagal memuat dashboard: $error')),
         ),
       ),
     );
   }
 
-  Widget _buildPipelineSection(int newC, int contacted, int nego, int closed, int lost) {
-    final total = newC + contacted + nego + closed + lost;
+  Widget _buildPipelineSection(ProspectSummary summary) {
+    final total = summary.newCount + summary.contacted + summary.negotiation + summary.closed + summary.lost;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SectionHeader(title: 'Pipeline Prospek'),
       const SizedBox(height: 12),
       FunnelBarChart(
         total: total > 0 ? total : 1,
         stages: [
-          ChartBarData(label: 'Baru', value: newC.toDouble(), color: AppColors.info),
-          ChartBarData(label: 'Kontak', value: contacted.toDouble(), color: AppColors.primary),
-          ChartBarData(label: 'Nego', value: nego.toDouble(), color: AppColors.warning),
-          ChartBarData(label: 'Tutup', value: closed.toDouble(), color: AppColors.success),
-          ChartBarData(label: 'Tidak Lanjut', value: lost.toDouble(), color: AppColors.error),
+          ChartBarData(label: 'Baru', value: summary.newCount.toDouble(), color: AppColors.info),
+          ChartBarData(label: 'Kontak', value: summary.contacted.toDouble(), color: AppColors.primary),
+          ChartBarData(label: 'Nego', value: summary.negotiation.toDouble(), color: AppColors.warning),
+          ChartBarData(label: 'Tutup', value: summary.closed.toDouble(), color: AppColors.success),
+          ChartBarData(label: 'Tidak Lanjut', value: summary.lost.toDouble(), color: AppColors.error),
         ],
       ),
     ]);
   }
 
-  Widget _buildFollowUps(BuildContext context) {
-    final followUps = DummyDataProvider.prospects
-        .where((p) => p.status == 'Negotiation' || p.status == 'Contacted')
+  Widget _buildFollowUps(BuildContext context, List<Prospect> prospects) {
+    final followUps = prospects
+        .where((p) => p.status == 'negotiation' || p.status == 'contacted')
         .take(3)
         .toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -167,9 +180,9 @@ class SalesDashboardScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(p.name, style: AppTextStyles.bodyMedium),
-                  Text('Minat: ${p.productInterest}', style: AppTextStyles.caption),
+                  Text('Minat: ${p.productInterest ?? '-'}', style: AppTextStyles.caption),
                 ])),
-                StatusBadge(label: p.status, color: p.status == 'Negotiation' ? AppColors.warning : AppColors.info),
+                StatusBadge(label: _prettyStatus(p.status), color: p.status == 'negotiation' ? AppColors.warning : AppColors.info),
               ]),
             );
           },
@@ -178,7 +191,7 @@ class SalesDashboardScreen extends ConsumerWidget {
     ]);
   }
 
-  Widget _buildProspectList(BuildContext context, List<DummyProspect> prospects) {
+  Widget _buildProspectList(BuildContext context, List<Prospect> prospects) {
     final shown = prospects.take(4).toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SectionHeader(title: 'Prospek Terbaru', actionLabel: 'Semua', onAction: () => context.go('/sales/prospects')),
@@ -202,9 +215,9 @@ class SalesDashboardScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(p.name, style: AppTextStyles.bodyMedium),
-                  Text(p.productInterest, style: AppTextStyles.caption),
+                  Text(p.productInterest ?? '-', style: AppTextStyles.caption),
                 ])),
-                StatusBadge(label: p.status, color: sc),
+                StatusBadge(label: _prettyStatus(p.status), color: sc),
               ]),
             );
           },
@@ -213,7 +226,8 @@ class SalesDashboardScreen extends ConsumerWidget {
     ]);
   }
 
-  Widget _buildCampaignSummary(BuildContext context) {
+  Widget _buildCampaignSummary(BuildContext context, List<Campaign> campaigns) {
+    final campaign = campaigns.isNotEmpty ? campaigns.first : null;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SectionHeader(title: 'Kampanye Terbaru', actionLabel: 'Semua', onAction: () => context.go('/sales/campaigns')),
       const SizedBox(height: 12),
@@ -228,18 +242,16 @@ class SalesDashboardScreen extends ConsumerWidget {
                 decoration: BoxDecoration(color: AppColors.salesLight, borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.campaign_outlined, color: AppColors.salesColor, size: 18)),
               const SizedBox(width: 12),
-              Expanded(child: Text('Promo Aki Lebaran', style: AppTextStyles.bodyMedium)),
-              const StatusBadge(label: 'Selesai', color: AppColors.success),
+              Expanded(child: Text(campaign?.name ?? 'Belum ada kampanye', style: AppTextStyles.bodyMedium)),
+              StatusBadge(label: campaign == null ? 'Kosong' : _prettyStatus(campaign.status), color: campaign == null ? AppColors.textHint : _campaignColor(campaign.status)),
             ]),
             const SizedBox(height: 14),
             Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-              _campaignStat('Terkirim', '45', AppColors.info),
+              _campaignStat('Target', '${campaign?.targetAmount ?? 0}', AppColors.info),
               Container(width: 1, height: 30, color: AppColors.divider),
-              _campaignStat('Dibaca', '32', AppColors.success),
+              _campaignStat('Tercapai', '${campaign?.achievedAmount ?? 0}', AppColors.success),
               Container(width: 1, height: 30, color: AppColors.divider),
-              _campaignStat('Respons', '12', AppColors.salesColor),
-              Container(width: 1, height: 30, color: AppColors.divider),
-              _campaignStat('Gagal', '3', AppColors.error),
+              _campaignStat('Status', campaign == null ? '-' : _prettyStatus(campaign.status), AppColors.salesColor),
             ]),
           ]),
         ),
@@ -256,13 +268,62 @@ class SalesDashboardScreen extends ConsumerWidget {
   }
 
   Color _statusColor(String status) {
-    switch (status) {
-      case 'New': return AppColors.info;
-      case 'Contacted': return AppColors.primary;
-      case 'Negotiation': return AppColors.warning;
-      case 'Closed': return AppColors.success;
-      case 'Lost': return AppColors.error;
+    switch (status.toLowerCase()) {
+      case 'new': return AppColors.info;
+      case 'contacted': return AppColors.primary;
+      case 'negotiation': return AppColors.warning;
+      case 'closed': return AppColors.success;
+      case 'lost': return AppColors.error;
       default: return AppColors.textSecondary;
     }
+  }
+
+  Color _campaignColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return AppColors.info;
+      case 'completed':
+        return AppColors.success;
+      case 'cancelled':
+        return AppColors.error;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  String _prettyStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'new':
+        return 'Baru';
+      case 'contacted':
+        return 'Kontak';
+      case 'negotiation':
+        return 'Nego';
+      case 'closed':
+        return 'Tutup';
+      case 'lost':
+        return 'Tidak Lanjut';
+      case 'active':
+        return 'Aktif';
+      case 'completed':
+        return 'Selesai';
+      case 'cancelled':
+        return 'Batal';
+      default:
+        return status;
+    }
+  }
+
+  Widget _buildErrorSection(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppShadows.sm,
+      ),
+      child: Text(message, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.error)),
+    );
   }
 }

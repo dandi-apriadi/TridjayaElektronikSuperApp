@@ -1,28 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/dummy_data/dummy_data.dart';
+import '../../models/sales_models.dart';
+import '../providers/sales_provider.dart';
 import '../../../../shared/widgets/stat_card.dart';
 
-class ProspectScreen extends StatefulWidget {
+class ProspectScreen extends ConsumerStatefulWidget {
   const ProspectScreen({super.key});
 
   @override
-  State<ProspectScreen> createState() => _ProspectScreenState();
+  ConsumerState<ProspectScreen> createState() => _ProspectScreenState();
 }
 
-class _ProspectScreenState extends State<ProspectScreen> {
+class _ProspectScreenState extends ConsumerState<ProspectScreen> {
   String _selectedStatus = 'Semua';
   final _searchCtrl = TextEditingController();
   final List<String> _statuses = ['Semua', 'New', 'Contacted', 'Negotiation', 'Closed', 'Lost'];
 
+  List<Prospect> _filteredProspects(List<Prospect> prospects) {
+    return prospects.where((p) {
+      final matchStatus = _selectedStatus == 'Semua' || p.status.toLowerCase() == _selectedStatus.toLowerCase();
+      final query = _searchCtrl.text.toLowerCase();
+      final matchSearch = query.isEmpty ||
+          p.name.toLowerCase().contains(query) ||
+          p.phone.toLowerCase().contains(query);
+      return matchStatus && matchSearch;
+    }).toList();
+  }
+
   Color _statusColor(String s) {
-    switch (s) {
-      case 'New': return AppColors.info;
-      case 'Contacted': return AppColors.primary;
-      case 'Negotiation': return AppColors.warning;
-      case 'Closed': return AppColors.success;
-      case 'Lost': return AppColors.error;
+    switch (s.toLowerCase()) {
+      case 'new': return AppColors.info;
+      case 'contacted': return AppColors.primary;
+      case 'negotiation': return AppColors.warning;
+      case 'closed': return AppColors.success;
+      case 'lost': return AppColors.error;
       default: return AppColors.textSecondary;
     }
   }
@@ -35,15 +48,7 @@ class _ProspectScreenState extends State<ProspectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var prospects = DummyDataProvider.prospects.toList();
-    if (_selectedStatus != 'Semua') {
-      prospects = prospects.where((p) => p.status == _selectedStatus).toList();
-    }
-    if (_searchCtrl.text.isNotEmpty) {
-      prospects = prospects.where((p) =>
-          p.name.toLowerCase().contains(_searchCtrl.text.toLowerCase()) ||
-          p.phone.contains(_searchCtrl.text)).toList();
-    }
+    final prospectsAsync = ref.watch(prospectsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -88,39 +93,53 @@ class _ProspectScreenState extends State<ProspectScreen> {
             ),
           ),
         ],
-        body: Column(children: [
-          _buildSummaryRow(),
-          _buildStatusFilter(),
-          Expanded(
-            child: prospects.isEmpty
-                ? _buildEmpty()
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                    itemCount: prospects.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _buildProspectCard(context, prospects[i]),
-                  ),
-          ),
-        ]),
+        body: prospectsAsync.when(
+          data: (prospects) {
+            final filtered = _filteredProspects(prospects);
+            return Column(children: [
+              _buildSummaryRow(prospects),
+              _buildStatusFilter(prospects),
+              Expanded(
+                child: filtered.isEmpty
+                    ? _buildEmpty()
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (_, i) => _buildProspectCard(context, filtered[i]),
+                      ),
+              ),
+            ]);
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text('Gagal memuat prospek: $error')),
+        ),
       ),
     );
   }
 
-  Widget _buildSummaryRow() {
-    final all = DummyDataProvider.prospects;
+  Widget _buildSummaryRow(List<Prospect> all) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(children: [
         Expanded(child: StatCard(title: 'Total', value: '${all.length}', icon: Icons.people_outline_rounded, color: AppColors.salesColor)),
         const SizedBox(width: 8),
-        Expanded(child: StatCard(title: 'Aktif', value: '${all.where((p) => p.status != "Closed" && p.status != "Lost").length}', icon: Icons.trending_up_rounded, color: AppColors.info)),
+        Expanded(child: StatCard(title: 'Aktif', value: '${all.where((p) => p.status != "closed" && p.status != "lost").length}', icon: Icons.trending_up_rounded, color: AppColors.info)),
         const SizedBox(width: 8),
-        Expanded(child: StatCard(title: 'Closed', value: '${all.where((p) => p.status == "Closed").length}', icon: Icons.check_circle_outline, color: AppColors.success)),
+        Expanded(child: StatCard(title: 'Closed', value: '${all.where((p) => p.status == "closed").length}', icon: Icons.check_circle_outline, color: AppColors.success)),
       ]),
     );
   }
 
-  Widget _buildStatusFilter() {
+  Widget _buildStatusFilter(List<Prospect> prospects) {
+    final counts = {
+      'Semua': prospects.length,
+      'New': prospects.where((p) => p.status == 'new').length,
+      'Contacted': prospects.where((p) => p.status == 'contacted').length,
+      'Negotiation': prospects.where((p) => p.status == 'negotiation').length,
+      'Closed': prospects.where((p) => p.status == 'closed').length,
+      'Lost': prospects.where((p) => p.status == 'lost').length,
+    };
     return Container(
       color: AppColors.surface,
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
@@ -144,7 +163,11 @@ class _ProspectScreenState extends State<ProspectScreen> {
                   color: isSelected ? chipColor : AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(s, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppColors.textSecondary)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(s, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppColors.textSecondary)),
+                  const SizedBox(width: 4),
+                  Text('(${counts[s] ?? 0})', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : AppColors.textHint)),
+                ]),
               ),
             );
           },
@@ -153,7 +176,7 @@ class _ProspectScreenState extends State<ProspectScreen> {
     );
   }
 
-  Widget _buildProspectCard(BuildContext context, DummyProspect p) {
+  Widget _buildProspectCard(BuildContext context, Prospect p) {
     final sc = _statusColor(p.status);
     return GestureDetector(
       onTap: () => _showProspectDetail(context, p),
@@ -184,7 +207,7 @@ class _ProspectScreenState extends State<ProspectScreen> {
             Row(children: [
               const Icon(Icons.inventory_2_outlined, size: 12, color: AppColors.textHint),
               const SizedBox(width: 4),
-              Text(p.productInterest, style: AppTextStyles.caption),
+              Text(p.productInterest ?? '-', style: AppTextStyles.caption),
             ]),
           ])),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -215,7 +238,7 @@ class _ProspectScreenState extends State<ProspectScreen> {
     );
   }
 
-  void _showProspectDetail(BuildContext context, DummyProspect p) {
+  void _showProspectDetail(BuildContext context, Prospect p) {
     final sc = _statusColor(p.status);
     showModalBottomSheet(
       context: context,
@@ -249,7 +272,7 @@ class _ProspectScreenState extends State<ProspectScreen> {
             child: Column(children: [
               _detailRow(Icons.phone_outlined, 'Telepon', p.phone),
               const Divider(height: 14),
-              _detailRow(Icons.inventory_2_outlined, 'Minat Produk', p.productInterest),
+              _detailRow(Icons.inventory_2_outlined, 'Minat Produk', p.productInterest ?? '-'),
               const Divider(height: 14),
               _detailRow(Icons.business_outlined, 'Cabang', 'Cabang Pusat'),
             ]),
@@ -300,11 +323,11 @@ class _ProspectScreenState extends State<ProspectScreen> {
     ]));
   }
 
-  void _showEditProspect(BuildContext context, DummyProspect p) {
+  void _showEditProspect(BuildContext context, Prospect p) {
     _showAddProspectSheet(context, prospect: p);
   }
 
-  void _showContactOptions(BuildContext context, DummyProspect p) {
+  void _showContactOptions(BuildContext context, Prospect p) {
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -388,7 +411,7 @@ class _ProspectScreenState extends State<ProspectScreen> {
     );
   }
 
-  void _showAddProspectSheet(BuildContext context, {DummyProspect? prospect}) {
+  void _showAddProspectSheet(BuildContext context, {Prospect? prospect}) {
     final nameCtrl = TextEditingController(text: prospect?.name);
     final phoneCtrl = TextEditingController(text: prospect?.phone);
     String selectedProduct = prospect?.productInterest ?? 'Aki';

@@ -1,16 +1,20 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import '../../core/models/leave_request_model.dart';
 import '../../core/models/user_model.dart';
-import '../../core/models/user_model.dart';
+import '../../core/network/dio_client.dart';
 
 /// ============================================================
-/// 📝 LEAVE REQUEST PROVIDER
+/// 📝 LEAVE REQUEST PROVIDER (REAL API)
 /// State management untuk pengajuan dan persetujuan OFF/Sakit
+/// Connected to: GET/POST /api/leave-requests
 /// ============================================================
 
 // Provider untuk daftar semua leave requests
 final leaveRequestsProvider = StateNotifierProvider<LeaveRequestNotifier, List<LeaveRequest>>((ref) {
-  return LeaveRequestNotifier();
+  final dio = ref.watch(dioClientProvider).dio;
+  return LeaveRequestNotifier(dio);
 });
 
 // Provider untuk leave requests milik user saat ini
@@ -46,7 +50,33 @@ final pendingApprovalsCountProvider = Provider<int>((ref) {
 });
 
 class LeaveRequestNotifier extends StateNotifier<List<LeaveRequest>> {
-  LeaveRequestNotifier() : super(getDummyLeaveRequests());
+  final Dio _dio;
+  bool _initialized = false;
+
+  LeaveRequestNotifier(this._dio) : super([]) {
+    _loadFromApi();
+  }
+
+  /// Load leave requests from API
+  Future<void> _loadFromApi() async {
+    try {
+      final response = await _dio.get('/api/leave-requests/my');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data is List ? response.data : [];
+        state = data.map((json) => _parseLeaveRequest(json)).toList();
+        _initialized = true;
+      }
+    } on DioException catch (e) {
+      debugPrint('Error loading leave requests: ${e.message}');
+      // Keep empty state on error, don't crash
+    }
+  }
+
+  /// Refresh data from API
+  Future<void> refresh() async {
+    await _loadFromApi();
+  }
 
   /// Submit pengajuan OFF/Sakit baru
   Future<bool> submitRequest({
@@ -60,37 +90,26 @@ class LeaveRequestNotifier extends StateNotifier<List<LeaveRequest>> {
     String? attachmentUrl,
   }) async {
     try {
-      // Validasi: cek apakah sudah ada pengajuan untuk tanggal yang sama
-      final existingRequest = state.any((r) {
-        if (r.employeeId != employeeId) return false;
-        if (r.status == LeaveStatus.cancelled || r.status == LeaveStatus.rejected) return false;
-        
-        // Cek overlap tanggal
-        return (startDate.isBefore(r.endDate.add(const Duration(days: 1))) && 
-                endDate.isAfter(r.startDate.subtract(const Duration(days: 1))));
-      });
-
-      if (existingRequest) {
-        throw Exception('Sudah ada pengajuan untuk periode tanggal ini');
-      }
-
-      final newRequest = LeaveRequest(
-        id: 'lr${DateTime.now().millisecondsSinceEpoch}',
-        employeeId: employeeId,
-        employeeName: employeeName,
-        employeePhoto: employeePhoto,
-        type: type,
-        status: LeaveStatus.pending,
-        startDate: startDate,
-        endDate: endDate,
-        reason: reason,
-        attachmentUrl: attachmentUrl,
-        createdAt: DateTime.now(),
+      final response = await _dio.post(
+        '/api/leave-requests',
+        data: {
+          'start_date': '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}',
+          'end_date': '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}',
+          'reason': reason ?? '${type.displayName}: Pengajuan ${type.displayName}',
+        },
       );
 
-      state = [newRequest, ...state];
-      return true;
-    } catch (e) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        // Parse the response and add to state
+        final newRequest = _parseLeaveRequest(response.data);
+        state = [newRequest, ...state];
+        return true;
+      }
+      return false;
+    } on DioException catch (e) {
+      debugPrint('Error submitting leave request: ${e.message}');
+      final errorMsg = e.response?.data?['error'] ?? 'Gagal mengajukan cuti';
+      debugPrint('Server error: $errorMsg');
       return false;
     }
   }
@@ -102,20 +121,29 @@ class LeaveRequestNotifier extends StateNotifier<List<LeaveRequest>> {
     required String approverName,
   }) async {
     try {
-      state = state.map((request) {
-        if (request.id == requestId) {
-          return request.copyWith(
-            status: LeaveStatus.approved,
-            approvedBy: approverId,
-            approverName: approverName,
-            approvedAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          );
-        }
-        return request;
-      }).toList();
-      return true;
-    } catch (e) {
+      final response = await _dio.post(
+        '/api/leave-requests/$requestId/approve',
+        data: {'notes': 'Disetujui oleh $approverName'},
+      );
+
+      if (response.statusCode == 200) {
+        state = state.map((request) {
+          if (request.id == requestId) {
+            return request.copyWith(
+              status: LeaveStatus.approved,
+              approvedBy: approverId,
+              approverName: approverName,
+              approvedAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+          }
+          return request;
+        }).toList();
+        return true;
+      }
+      return false;
+    } on DioException catch (e) {
+      debugPrint('Error approving leave request: ${e.message}');
       return false;
     }
   }
@@ -128,21 +156,30 @@ class LeaveRequestNotifier extends StateNotifier<List<LeaveRequest>> {
     required String rejectionReason,
   }) async {
     try {
-      state = state.map((request) {
-        if (request.id == requestId) {
-          return request.copyWith(
-            status: LeaveStatus.rejected,
-            approvedBy: approverId,
-            approverName: approverName,
-            approvedAt: DateTime.now(),
-            rejectionReason: rejectionReason,
-            updatedAt: DateTime.now(),
-          );
-        }
-        return request;
-      }).toList();
-      return true;
-    } catch (e) {
+      final response = await _dio.post(
+        '/api/leave-requests/$requestId/reject',
+        data: {'notes': rejectionReason},
+      );
+
+      if (response.statusCode == 200) {
+        state = state.map((request) {
+          if (request.id == requestId) {
+            return request.copyWith(
+              status: LeaveStatus.rejected,
+              approvedBy: approverId,
+              approverName: approverName,
+              approvedAt: DateTime.now(),
+              rejectionReason: rejectionReason,
+              updatedAt: DateTime.now(),
+            );
+          }
+          return request;
+        }).toList();
+        return true;
+      }
+      return false;
+    } on DioException catch (e) {
+      debugPrint('Error rejecting leave request: ${e.message}');
       return false;
     }
   }
@@ -152,38 +189,34 @@ class LeaveRequestNotifier extends StateNotifier<List<LeaveRequest>> {
     try {
       final request = state.firstWhere((r) => r.id == requestId);
       if (request.status != LeaveStatus.pending) {
-        throw Exception('Hanya pengajuan dengan status menunggu yang bisa dibatalkan');
+        debugPrint('Cannot cancel: status is not pending');
+        return false;
       }
 
-      state = state.map((r) {
-        if (r.id == requestId) {
-          return r.copyWith(
-            status: LeaveStatus.cancelled,
-            updatedAt: DateTime.now(),
-          );
-        }
-        return r;
-      }).toList();
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
+      // Use reject endpoint to cancel
+      final response = await _dio.post(
+        '/api/leave-requests/$requestId/reject',
+        data: {'notes': 'Dibatalkan oleh karyawan'},
+      );
 
-  /// Update attachment URL
-  Future<bool> updateAttachment(String requestId, String attachmentUrl) async {
-    try {
-      state = state.map((request) {
-        if (request.id == requestId) {
-          return request.copyWith(
-            attachmentUrl: attachmentUrl,
-            updatedAt: DateTime.now(),
-          );
-        }
-        return request;
-      }).toList();
-      return true;
+      if (response.statusCode == 200) {
+        state = state.map((r) {
+          if (r.id == requestId) {
+            return r.copyWith(
+              status: LeaveStatus.cancelled,
+              updatedAt: DateTime.now(),
+            );
+          }
+          return r;
+        }).toList();
+        return true;
+      }
+      return false;
+    } on DioException catch (e) {
+      debugPrint('Error cancelling leave request: ${e.message}');
+      return false;
     } catch (e) {
+      debugPrint('Error: $e');
       return false;
     }
   }
@@ -200,5 +233,64 @@ extension UserRoleLeaveApproval on UserRole {
       default:
         return false;
     }
+  }
+}
+
+// ============================================
+// HELPER: Parse API response to LeaveRequest model
+// ============================================
+
+LeaveRequest _parseLeaveRequest(dynamic json) {
+  final data = json as Map<String, dynamic>;
+
+  return LeaveRequest(
+    id: data['id'] ?? '',
+    employeeId: data['user_id'] ?? '',
+    employeeName: data['user_name'] ?? 'User',
+    employeePhoto: null,
+    type: _parseLeaveType(data['reason']),
+    status: _parseLeaveStatus(data['status']),
+    startDate: _parseDate(data['start_date']),
+    endDate: _parseDate(data['end_date']),
+    reason: data['reason'],
+    attachmentUrl: null,
+    createdAt: _parseDate(data['created_at']),
+    approvedBy: data['approved_by'],
+    approverName: data['approver_name'],
+    approvedAt: data['approved_at'] != null ? DateTime.tryParse(data['approved_at']) : null,
+    rejectionReason: data['rejection_reason'],
+    updatedAt: data['updated_at'] != null ? DateTime.tryParse(data['updated_at']) : null,
+  );
+}
+
+DateTime _parseDate(String? dateStr) {
+  if (dateStr == null || dateStr.isEmpty) return DateTime.now();
+  return DateTime.tryParse(dateStr) ?? DateTime.now();
+}
+
+LeaveType _parseLeaveType(String? reason) {
+  if (reason == null) return LeaveType.off;
+  final lower = reason.toLowerCase();
+  if (lower.contains('sakit') || lower.contains('sick') || lower.contains('demam')) {
+    return LeaveType.sakit;
+  } else if (lower.contains('izin') || lower.contains('permission')) {
+    return LeaveType.izin;
+  } else if (lower.contains('cuti') || lower.contains('annual')) {
+    return LeaveType.cuti;
+  }
+  return LeaveType.off;
+}
+
+LeaveStatus _parseLeaveStatus(String? status) {
+  switch (status?.toLowerCase()) {
+    case 'approved':
+      return LeaveStatus.approved;
+    case 'rejected':
+      return LeaveStatus.rejected;
+    case 'cancelled':
+      return LeaveStatus.cancelled;
+    case 'pending':
+    default:
+      return LeaveStatus.pending;
   }
 }

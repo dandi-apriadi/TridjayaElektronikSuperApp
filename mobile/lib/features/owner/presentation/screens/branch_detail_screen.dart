@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/dummy_data/dummy_data.dart';
 import '../../../../shared/widgets/chart_widgets.dart';
 import '../../../../shared/widgets/stat_card.dart';
+import '../../models/owner_models.dart';
+import '../providers/owner_provider.dart';
 
 class BranchDetailScreen extends ConsumerStatefulWidget {
   final String branchId;
@@ -21,108 +22,162 @@ class _BranchDetailScreenState extends ConsumerState<BranchDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final branch = DummyDataProvider.branches.firstWhere(
-      (b) => b.id == widget.branchId,
-      orElse: () => DummyDataProvider.branches.first,
-    );
-
-    final branchInventory = DummyDataProvider.inventories
-        .where((i) => i.branchId == widget.branchId)
-        .toList();
-
-    final branchSales = DummyDataProvider.salesData
-        .where((s) => s.branchId == widget.branchId)
-        .toList();
-
-    final totalSales = branchSales.fold(0, (s, d) => s + d.dailySales);
-    final totalRevenue = branchSales.fold(0.0, (s, d) => s + d.dailyRevenue);
-    final lowStockCount = branchInventory.fold(0, (s, i) => s + i.lowStockCount);
+    final branchDetailAsync = ref.watch(ownerBranchDetailProvider(widget.branchId));
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: RefreshIndicator(
-        onRefresh: () async => setState(() {}),
-        color: AppColors.ownerColor,
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 200,
-              pinned: true,
-              elevation: 0,
-              backgroundColor: AppColors.ownerColor,
-              systemOverlayStyle: SystemUiOverlayStyle.light,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                onPressed: () => context.pop(),
-              ),
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: AppColors.ownerGradient,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.store_rounded, color: Colors.white, size: 14),
-                                SizedBox(width: 6),
-                                Text('Detail Cabang', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(branch.name, style: AppTextStyles.heading2.copyWith(color: Colors.white)),
-                          const SizedBox(height: 4),
-                          Text(branch.address, style: AppTextStyles.caption.copyWith(color: Colors.white70)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
+      body: branchDetailAsync.when(
+        loading: () => _buildLoadingState(),
+        error: (error, _) => _buildErrorState(error.toString()),
+        data: (detail) => _buildContent(detail),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          pinned: true,
+          backgroundColor: AppColors.ownerColor,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            onPressed: () => context.pop(),
+          ),
+          title: const Text('Memuat...', style: TextStyle(color: Colors.white)),
+        ),
+        const SliverFillRemaining(
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          pinned: true,
+          backgroundColor: AppColors.ownerColor,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            onPressed: () => context.pop(),
+          ),
+          title: const Text('Error', style: TextStyle(color: Colors.white)),
+        ),
+        SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildTimeFilter(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildMetricsRow(totalSales, totalRevenue, lowStockCount),
-                        const SizedBox(height: 20),
-                        _buildSalesChart(branchSales),
-                        const SizedBox(height: 20),
-                        _buildInventorySection(branchInventory),
-                        const SizedBox(height: 20),
-                        _buildStaffSection(),
-                        const SizedBox(height: 20),
-                        _buildRecentActivity(),
-                        const SizedBox(height: 100),
-                      ],
+                  const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                  const SizedBox(height: 12),
+                  Text('Gagal memuat detail cabang', style: AppTextStyles.heading3),
+                  const SizedBox(height: 8),
+                  Text(error, style: AppTextStyles.caption, textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => ref.invalidate(ownerBranchDetailProvider(widget.branchId)),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Coba Lagi'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.ownerColor,
+                      foregroundColor: Colors.white,
                     ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildContent(BranchDetail detail) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(ownerBranchDetailProvider(widget.branchId));
+      },
+      color: AppColors.ownerColor,
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: AppColors.ownerColor,
+            systemOverlayStyle: SystemUiOverlayStyle.light,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              onPressed: () => context.pop(),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: AppColors.ownerGradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.store_rounded, color: Colors.white, size: 14),
+                              const SizedBox(width: 6),
+                              Text('Cabang ${detail.code}',
+                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(detail.name, style: AppTextStyles.heading2.copyWith(color: Colors.white)),
+                        const SizedBox(height: 4),
+                        Text(detail.address, style: AppTextStyles.caption.copyWith(color: Colors.white70)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                _buildTimeFilter(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildMetricsRow(detail),
+                      const SizedBox(height: 20),
+                      _buildManagerSection(detail),
+                      const SizedBox(height: 20),
+                      _buildRecentActivitySection(detail.recentActivity),
+                      const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -162,187 +217,134 @@ class _BranchDetailScreenState extends ConsumerState<BranchDetailScreen> {
     );
   }
 
-  Widget _buildMetricsRow(int sales, double revenue, int lowStock) {
-    return Row(children: [
-      Expanded(child: GradientStatCard(
-        title: 'Total Penjualan',
-        value: '$sales',
-        icon: Icons.shopping_cart_outlined,
-        gradient: AppColors.ownerGradient,
-      )),
-      const SizedBox(width: 12),
-      Expanded(child: StatCard(
-        title: 'Pendapatan',
-        value: 'Rp ${(revenue / 1000000).toStringAsFixed(1)}Jt',
-        icon: Icons.attach_money_rounded,
-        color: AppColors.success,
-      )),
-      const SizedBox(width: 12),
-      Expanded(child: StatCard(
-        title: 'Stok Rendah',
-        value: '$lowStock',
-        icon: Icons.warning_amber_rounded,
-        color: lowStock > 0 ? AppColors.warning : AppColors.success,
-      )),
-    ]);
-  }
-
-  Widget _buildSalesChart(List<DummySalesData> salesData) {
-    if (salesData.isEmpty) {
-      return _buildEmptyCard('Data penjualan tidak tersedia');
-    }
-
-    return BarChartCard(
-      title: 'Trend Penjualan',
-      subtitle: 'Perkembangan penjualan ${_timeRanges[_selectedTimeRange]}',
-      height: 200,
-      data: salesData.take(7).map((s) => ChartBarData(
-        label: 'Day', // DummySalesData doesn't have a date field
-        value: s.dailySales.toDouble(),
-        color: AppColors.ownerColor,
-      )).toList(),
-    );
-  }
-
-  Widget _buildInventorySection(List<DummyInventorySummary> inventory) {
-    final lowStockItems = inventory.where((i) => i.lowStockCount > 0).take(5).toList();
+  Widget _buildMetricsRow(BranchDetail detail) {
+    final revStr = detail.totalRevenue >= 1000000
+        ? 'Rp ${(detail.totalRevenue / 1000000).toStringAsFixed(1)}Jt'
+        : 'Rp ${detail.totalRevenue.toInt()}';
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
-          title: 'Status Inventori',
-          actionLabel: 'Lihat Semua',
-          onAction: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('📦 Menuju halaman inventori lengkap...')),
-          ),
-        ),
+        Row(children: [
+          Expanded(child: GradientStatCard(
+            title: 'Pendapatan',
+            value: revStr,
+            icon: Icons.attach_money_rounded,
+            gradient: AppColors.ownerGradient,
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: StatCard(
+            title: 'Karyawan',
+            value: '${detail.totalEmployees}',
+            icon: Icons.people_outline_rounded,
+            color: AppColors.info,
+          )),
+        ]),
         const SizedBox(height: 12),
-        if (lowStockItems.isEmpty)
-          _buildStatusCard(
-            Icons.check_circle_outline,
-            'Semua stok aman',
-            'Tidak ada item dengan stok rendah',
-            AppColors.success,
-          )
-        else
-          ...lowStockItems.map((item) => _buildInventoryAlertCard(item)),
+        Row(children: [
+          Expanded(child: StatCard(
+            title: 'Pending Approval',
+            value: '${detail.pendingApprovals}',
+            subtitle: 'Perlu ditinjau',
+            icon: Icons.pending_actions_rounded,
+            color: AppColors.warning,
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: StatCard(
+            title: 'Kehadiran',
+            value: '${detail.attendanceRate.toStringAsFixed(0)}%',
+            subtitle: 'Rate kehadiran',
+            icon: Icons.check_circle_outline_rounded,
+            color: detail.attendanceRate >= 80 ? AppColors.success : AppColors.error,
+          )),
+        ]),
       ],
     );
   }
 
-  Widget _buildInventoryAlertCard(DummyInventorySummary item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.warning.withOpacity(0.3)),
-      ),
-      child: Row(children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.warning.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.inventory_2_outlined, color: AppColors.warning),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Produk dengan Stok Rendah', style: AppTextStyles.bodyMedium),
-            Text('Cabang ini memiliki ${item.lowStockCount} item bermasalah',
-                style: AppTextStyles.caption.copyWith(color: AppColors.warning)),
-          ],
-        )),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppColors.warning.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text('${item.lowStockCount} item',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.warning)),
-        ),
-      ]),
-    );
-  }
-
-  Widget _buildStaffSection() {
-    final staff = [
-      ('Ahmad S', 'Kepala Cabang', 'online'),
-      ('Budi W', 'Admin', 'offline'),
-      ('Citra D', 'Sales', 'online'),
-      ('Dedi K', 'Driver', 'offline'),
-    ];
+  Widget _buildManagerSection(BranchDetail detail) {
+    if (detail.managerName == null) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Staff Cabang'),
+        const SectionHeader(title: 'Kepala Cabang'),
         const SizedBox(height: 12),
         Container(
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
+            boxShadow: AppShadows.sm,
           ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: staff.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, indent: 62),
-            itemBuilder: (_, i) {
-              final (name, role, status) = staff[i];
-              final isOnline = status == 'online';
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
-                  child: Text(name[0], style: TextStyle(color: AppColors.primary)),
+          child: Row(children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: AppColors.ownerColor.withOpacity(0.1),
+              child: Text(
+                detail.managerName!.isNotEmpty ? detail.managerName![0].toUpperCase() : '?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ownerColor,
                 ),
-                title: Text(name, style: AppTextStyles.bodyMedium),
-                subtitle: Text(role, style: AppTextStyles.caption),
-                trailing: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: isOnline ? AppColors.success : AppColors.textHint,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('👤 Detail $name - Coming Soon')),
-                ),
-              );
-            },
-          ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(detail.managerName!, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+                Text('Kepala Cabang', style: AppTextStyles.caption),
+              ],
+            )),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text('Aktif',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.success)),
+            ),
+          ]),
         ),
       ],
     );
   }
 
-  Widget _buildRecentActivity() {
-    final activities = [
-      ('Penjualan baru', 'TV Samsung 43" - Rp 4.500.000', '10 menit lalu', Icons.shopping_bag_outlined, AppColors.success),
-      ('Stok masuk', 'Aki GS NS40 - 20 unit', '1 jam lalu', Icons.inventory_2_outlined, AppColors.info),
-      ('Prospek baru', 'Budi Santoso - HP Xiaomi', '2 jam lalu', Icons.person_add_outlined, AppColors.primary),
-      ('Pengiriman', '3 unit ke Jl. Sudirman', '3 jam lalu', Icons.local_shipping_outlined, AppColors.warning),
-    ];
+  Widget _buildRecentActivitySection(List<ActivityItem> activities) {
+    if (activities.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Aktivitas Terbaru'),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(child: Text('Belum ada aktivitas terbaru')),
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader(title: 'Aktivitas Terbaru'),
         const SizedBox(height: 12),
-        ...activities.map((a) => _buildActivityItem(a.$1, a.$2, a.$3, a.$4, a.$5)),
+        ...activities.take(5).map((a) => _buildActivityItem(a)),
       ],
     );
   }
 
-  Widget _buildActivityItem(String title, String desc, String time, IconData icon, Color color) {
+  Widget _buildActivityItem(ActivityItem activity) {
+    final icon = _getActivityIcon(activity.iconType);
+    final color = _getActivityColor(activity.iconType);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -352,8 +354,7 @@ class _BranchDetailScreenState extends ConsumerState<BranchDetailScreen> {
       ),
       child: Row(children: [
         Container(
-          width: 40,
-          height: 40,
+          width: 40, height: 40,
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
@@ -364,54 +365,69 @@ class _BranchDetailScreenState extends ConsumerState<BranchDetailScreen> {
         Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: AppTextStyles.bodyMedium),
-            Text(desc, style: AppTextStyles.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(activity.userName, style: AppTextStyles.bodyMedium),
+            Text(activity.details, style: AppTextStyles.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
         )),
-        Text(time, style: AppTextStyles.caption.copyWith(fontSize: 11)),
-      ]),
-    );
-  }
-
-  Widget _buildStatusCard(IconData icon, String title, String subtitle, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color),
+        Text(
+          _formatTimestamp(activity.timestamp),
+          style: AppTextStyles.caption.copyWith(fontSize: 11),
         ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: AppTextStyles.bodyMedium),
-            Text(subtitle, style: AppTextStyles.caption),
-          ],
-        )),
       ]),
     );
   }
 
-  Widget _buildEmptyCard(String message) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Text(message, style: AppTextStyles.body.copyWith(color: AppColors.textHint)),
-      ),
-    );
+  IconData _getActivityIcon(String iconType) {
+    switch (iconType) {
+      case 'login':
+        return Icons.login_rounded;
+      case 'report':
+        return Icons.description_rounded;
+      case 'attendance':
+        return Icons.access_time_rounded;
+      case 'inventory':
+        return Icons.inventory_2_rounded;
+      case 'approval':
+        return Icons.check_circle_rounded;
+      default:
+        return Icons.circle_rounded;
+    }
+  }
+
+  Color _getActivityColor(String iconType) {
+    switch (iconType) {
+      case 'login':
+        return AppColors.info;
+      case 'report':
+        return AppColors.success;
+      case 'attendance':
+        return AppColors.primary;
+      case 'inventory':
+        return AppColors.warning;
+      case 'approval':
+        return AppColors.success;
+      default:
+        return AppColors.textHint;
+    }
+  }
+
+  String _formatTimestamp(String timestamp) {
+    try {
+      final dt = DateTime.parse(timestamp);
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+
+      if (diff.inMinutes < 60) {
+        return '${diff.inMinutes}m lalu';
+      } else if (diff.inHours < 24) {
+        return '${diff.inHours}j lalu';
+      } else if (diff.inDays < 7) {
+        return '${diff.inDays}h lalu';
+      } else {
+        return '${dt.day}/${dt.month}';
+      }
+    } catch (_) {
+      return timestamp;
+    }
   }
 }

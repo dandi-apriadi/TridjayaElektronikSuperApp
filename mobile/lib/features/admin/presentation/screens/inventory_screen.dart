@@ -1,33 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/chart_widgets.dart';
 import '../../../../shared/widgets/stat_card.dart';
+import '../../models/inventory_models.dart';
+import '../providers/inventory_provider.dart';
 
-class InventoryScreen extends StatefulWidget {
+class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
 
   @override
-  State<InventoryScreen> createState() => _InventoryScreenState();
+  ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen> {
+class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   String _selectedCategory = 'Semua';
   final _searchController = TextEditingController();
-
-  final List<_InventoryItem> _items = [
-    _InventoryItem('Aki GS NS40', 'Aki', 145, 20, 'GS Astra', 285000),
-    _InventoryItem('Aki GS MF 55B24R', 'Aki', 87, 15, 'GS Astra', 485000),
-    _InventoryItem('Aki Yuasa YB12', 'Aki', 32, 10, 'Yuasa', 320000),
-    _InventoryItem('Aki Amaron GO', 'Aki', 5, 10, 'Amaron', 520000),
-    _InventoryItem('TV Samsung 43" Smart', 'TV', 12, 5, 'Samsung', 4500000),
-    _InventoryItem('TV LG 32" HD', 'TV', 22, 5, 'LG', 2800000),
-    _InventoryItem('TV Sony Bravia 55"', 'TV', 3, 3, 'Sony', 8900000),
-    _InventoryItem('HP Samsung A15', 'HP', 78, 10, 'Samsung', 2100000),
-    _InventoryItem('HP Xiaomi Note 13', 'HP', 2, 10, 'Xiaomi', 2800000),
-    _InventoryItem('HP Realme C65', 'HP', 45, 10, 'Realme', 1800000),
-    _InventoryItem('HP Oppo A18', 'HP', 33, 10, 'Oppo', 1900000),
-  ];
 
   @override
   void dispose() {
@@ -37,89 +26,101 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var filtered = _items.where((item) {
-      final matchCat = _selectedCategory == 'Semua' || item.category == _selectedCategory;
-      final matchSearch = _searchController.text.isEmpty ||
-          item.name.toLowerCase().contains(_searchController.text.toLowerCase());
-      return matchCat && matchSearch;
-    }).toList();
+    final filter = InventoryFilter(
+      category: _selectedCategory,
+      searchQuery: _searchController.text,
+    );
+    final itemsAsync = ref.watch(inventoryItemsProvider(filter.toParams()));
 
-    final lowStockCount = _items.where((i) => i.stock <= i.minStock).length;
+    return itemsAsync.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (err, _) => Scaffold(body: Center(child: Text('Error: $err'))),
+      data: (items) {
+        var filtered = items.where((item) {
+          final matchCat = _selectedCategory == 'Semua' || item.category == _selectedCategory;
+          final matchSearch = _searchController.text.isEmpty ||
+              item.name.toLowerCase().contains(_searchController.text.toLowerCase());
+          return matchCat && matchSearch;
+        }).toList();
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton(
-            heroTag: 'remove',
-            mini: true,
-            backgroundColor: AppColors.error,
-            onPressed: () => _showStockForm(context, isAdd: false),
-            child: const Icon(Icons.remove_rounded),
+        final lowStockCount = items.where((i) => i.currentStock <= i.minimumStock).length;
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          floatingActionButton: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton(
+                heroTag: 'remove',
+                mini: true,
+                backgroundColor: AppColors.error,
+                onPressed: () => _showStockForm(context, isAdd: false),
+                child: const Icon(Icons.remove_rounded),
+              ),
+              const SizedBox(height: 8),
+              FloatingActionButton.extended(
+                heroTag: 'add',
+                backgroundColor: AppColors.success,
+                onPressed: () => _showStockForm(context, isAdd: true),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Tambah Stok'),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          FloatingActionButton.extended(
-            heroTag: 'add',
-            backgroundColor: AppColors.success,
-            onPressed: () => _showStockForm(context, isAdd: true),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Tambah Stok'),
-          ),
-        ],
-      ),
-      body: NestedScrollView(
-        headerSliverBuilder: (_, __) => [
-          SliverAppBar(
-            pinned: true,
-            elevation: 0,
-            backgroundColor: AppColors.adminColor,
-            systemOverlayStyle: SystemUiOverlayStyle.light,
-            title: const Text('Daftar Inventori', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18)),
-            iconTheme: const IconThemeData(color: Colors.white),
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(60),
-              child: Container(
-                color: AppColors.surface,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    hintText: 'Cari produk...',
-                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(icon: const Icon(Icons.clear_rounded, size: 18), onPressed: () { _searchController.clear(); setState(() {}); })
-                        : null,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    filled: true,
-                    fillColor: AppColors.surfaceVariant,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.adminColor, width: 1.5)),
+          body: NestedScrollView(
+            headerSliverBuilder: (_, __) => [
+              SliverAppBar(
+                pinned: true,
+                elevation: 0,
+                backgroundColor: AppColors.adminColor,
+                systemOverlayStyle: SystemUiOverlayStyle.light,
+                title: const Text('Daftar Inventori', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18)),
+                iconTheme: const IconThemeData(color: Colors.white),
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(60),
+                  child: Container(
+                    color: AppColors.surface,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: 'Cari produk...',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(icon: const Icon(Icons.clear_rounded, size: 18), onPressed: () { _searchController.clear(); setState(() {}); })
+                            : null,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        filled: true,
+                        fillColor: AppColors.surfaceVariant,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.adminColor, width: 1.5)),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
+            body: Column(children: [
+              _buildCategoryFilter(),
+              if (lowStockCount > 0) _buildLowStockBanner(lowStockCount),
+              _buildSummaryCards(filtered),
+              _buildStockDonut(filtered),
+              Expanded(
+                child: filtered.isEmpty
+                    ? _buildEmpty()
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (_, i) => _buildItemCard(context, filtered[i]),
+                      ),
+              ),
+            ]),
           ),
-        ],
-        body: Column(children: [
-          _buildCategoryFilter(),
-          if (lowStockCount > 0) _buildLowStockBanner(lowStockCount),
-          _buildSummaryCards(filtered),
-          _buildStockDonut(filtered),
-          Expanded(
-            child: filtered.isEmpty
-                ? _buildEmpty()
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _buildItemCard(context, filtered[i]),
-                  ),
-          ),
-        ]),
-      ),
+        );
+      },
     );
   }
 
@@ -169,10 +170,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildStockDonut(List<_InventoryItem> items) {
-    final akiTotal = _items.where((i) => i.category == 'Aki').fold(0, (s, i) => s + i.stock);
-    final tvTotal = _items.where((i) => i.category == 'TV').fold(0, (s, i) => s + i.stock);
-    final hpTotal = _items.where((i) => i.category == 'HP').fold(0, (s, i) => s + i.stock);
+  Widget _buildStockDonut(List<InventoryItem> items) {
+    final akiTotal = items.where((i) => i.category == 'Aki').fold(0, (s, i) => s + i.currentStock);
+    final tvTotal = items.where((i) => i.category == 'TV').fold(0, (s, i) => s + i.currentStock);
+    final hpTotal = items.where((i) => i.category == 'HP').fold(0, (s, i) => s + i.currentStock);
     final grandTotal = akiTotal + tvTotal + hpTotal;
     if (_selectedCategory != 'Semua') return const SizedBox.shrink();
     return Padding(
@@ -191,9 +192,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildSummaryCards(List<_InventoryItem> items) {
-    final total = items.fold(0, (s, i) => s + i.stock);
-    final lowStock = items.where((i) => i.stock <= i.minStock).length;
+  Widget _buildSummaryCards(List<InventoryItem> items) {
+    final total = items.fold(0, (s, i) => s + i.currentStock);
+    final lowStock = items.where((i) => i.currentStock <= i.minimumStock).length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Row(children: [
@@ -206,9 +207,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildItemCard(BuildContext context, _InventoryItem item) {
-    final isLow = item.stock <= item.minStock;
-    final stockPct = (item.stock / (item.minStock * 5)).clamp(0.0, 1.0);
+  Widget _buildItemCard(BuildContext context, InventoryItem item) {
+    final isLow = item.currentStock <= item.minimumStock;
+    final stockPct = (item.currentStock / (item.minimumStock * 5)).clamp(0.0, 1.0);
     final catColor = _categoryColor(item.category);
     return GestureDetector(
       onTap: () => _showItemDetail(context, item),
@@ -230,10 +231,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(item.name, style: AppTextStyles.bodyMedium),
-              Text('${item.brand} • ${_formatCurrency(item.price)}', style: AppTextStyles.caption),
+              Text('${item.sku} • ${_formatCurrency((item.pricePerUnit ?? 0).toInt())}', style: AppTextStyles.caption),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text('${item.stock} unit', style: AppTextStyles.subtitle.copyWith(
+              Text('${item.currentStock} unit', style: AppTextStyles.subtitle.copyWith(
                 color: isLow ? AppColors.error : AppColors.success,
               )),
               if (isLow)
@@ -259,15 +260,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            Text('Min: ${item.minStock}', style: AppTextStyles.caption),
+            Text('Min: ${item.minimumStock}', style: AppTextStyles.caption),
           ]),
         ]),
       ),
     );
   }
 
-  void _showItemDetail(BuildContext context, _InventoryItem item) {
-    final isLow = item.stock <= item.minStock;
+  void _showItemDetail(BuildContext context, InventoryItem item) {
+    final isLow = item.currentStock <= item.minimumStock;
     final catColor = _categoryColor(item.category);
     showModalBottomSheet(
       context: context,
@@ -288,7 +289,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(item.name, style: AppTextStyles.heading3),
-              Text('${item.brand} • ${item.category}', style: AppTextStyles.caption),
+              Text('${item.sku} • ${item.category}', style: AppTextStyles.caption),
             ])),
           ]),
           const SizedBox(height: 16),
@@ -296,11 +297,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(12)),
             child: Column(children: [
-              _detailRow('Stok Saat Ini', '${item.stock} unit'),
+              _detailRow('Stok Saat Ini', '${item.currentStock} unit'),
               const Divider(height: 14),
-              _detailRow('Stok Minimum', '${item.minStock} unit'),
+              _detailRow('Stok Minimum', '${item.minimumStock} unit'),
               const Divider(height: 14),
-              _detailRow('Harga Jual', _formatCurrency(item.price)),
+              _detailRow('Harga Jual', _formatCurrency((item.pricePerUnit ?? 0).toInt())),
               const Divider(height: 14),
               _detailRow('Status', isLow ? '⚠️ Stok Rendah' : '✅ Aman'),
             ]),
@@ -347,67 +348,128 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  void _showStockForm(BuildContext context, {required bool isAdd, _InventoryItem? item}) {
+  void _showStockForm(BuildContext context, {required bool isAdd, InventoryItem? item}) {
     final qtyCtrl = TextEditingController();
     final reasonCtrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isAdd ? 'Tambah Stok' : 'Kurangi Stok'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (item == null)
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(labelText: 'Pilih Item'),
-              value: _items.first.name,
-              items: _items.map((i) => DropdownMenuItem(value: i.name, child: Text(i.name, style: const TextStyle(fontSize: 13)))).toList(),
-              onChanged: (_) {},
-            ),
-          if (item != null)
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(8)),
-              child: Text(item.name, style: AppTextStyles.bodyMedium),
-            ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: qtyCtrl,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: 'Jumlah', hintText: isAdd ? 'Jumlah yang ditambahkan' : 'Jumlah yang dikurangi'),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: reasonCtrl,
-            decoration: InputDecoration(labelText: 'Keterangan', hintText: isAdd ? 'Sumber stok / supplier' : 'Alasan pengurangan'),
-          ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kamera — Coming Soon'), behavior: SnackBarBehavior.floating)),
-            child: Container(
-              height: 50, width: double.infinity,
-              decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.camera_alt_outlined, color: AppColors.textHint, size: 18),
-                const SizedBox(width: 8),
-                Text('Foto Bukti (Opsional)', style: AppTextStyles.caption),
-              ]),
-            ),
-          ),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(isAdd ? 'Stok berhasil ditambahkan' : 'Stok berhasil dikurangi'),
-                backgroundColor: isAdd ? AppColors.success : AppColors.warning,
-                behavior: SnackBarBehavior.floating,
-              ));
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: isAdd ? AppColors.success : AppColors.error),
-            child: Text(isAdd ? 'Tambah' : 'Kurangi'),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          bool isLoading = false;
+          return AlertDialog(
+            title: Text(isAdd ? 'Tambah Stok' : 'Kurangi Stok'),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (item == null)
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(labelText: 'Pilih Item'),
+                  value: null,
+                  items: const [],
+                  onChanged: (_) {},
+                ),
+              if (item != null)
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(8)),
+                  child: Text(item.name, style: AppTextStyles.bodyMedium),
+                ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: qtyCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: 'Jumlah', hintText: isAdd ? 'Jumlah yang ditambahkan' : 'Jumlah yang dikurangi'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: reasonCtrl,
+                decoration: InputDecoration(labelText: 'Keterangan', hintText: isAdd ? 'Sumber stok / supplier' : 'Alasan pengurangan'),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kamera — Coming Soon'), behavior: SnackBarBehavior.floating)),
+                child: Container(
+                  height: 50, width: double.infinity,
+                  decoration: BoxDecoration(color: AppColors.surfaceVariant, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.border)),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Icon(Icons.camera_alt_outlined, color: AppColors.textHint, size: 18),
+                    const SizedBox(width: 8),
+                    Text('Foto Bukti (Opsional)', style: AppTextStyles.caption),
+                  ]),
+                ),
+              ),
+            ]),
+            actions: [
+              TextButton(onPressed: isLoading ? null : () => Navigator.pop(ctx), child: const Text('Batal')),
+              ElevatedButton(
+                onPressed: isLoading ? null : () async {
+                  final qty = int.tryParse(qtyCtrl.text);
+                  if (qty == null || qty <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Jumlah harus berupa angka positif'), behavior: SnackBarBehavior.floating),
+                    );
+                    return;
+                  }
+                  if (reasonCtrl.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Keterangan wajib diisi'), behavior: SnackBarBehavior.floating),
+                    );
+                    return;
+                  }
+                  if (item == null || item.id.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Item belum dipilih'), behavior: SnackBarBehavior.floating),
+                    );
+                    return;
+                  }
+
+                  setState(() => isLoading = true);
+
+                  try {
+                    if (isAdd) {
+                      final request = AddStockRequest(
+                        itemId: item.id,
+                        quantity: qty,
+                        reason: reasonCtrl.text.trim(),
+                      );
+                      await ref.read(addStockProvider(request).future);
+                    } else {
+                      final request = RemoveStockRequest(
+                        itemId: item.id,
+                        quantity: qty,
+                        reason: reasonCtrl.text.trim(),
+                      );
+                      await ref.read(removeStockProvider(request).future);
+                    }
+
+                    if (context.mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(isAdd ? 'Stok berhasil ditambahkan' : 'Stok berhasil dikurangi'),
+                        backgroundColor: isAdd ? AppColors.success : AppColors.warning,
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                      ref.invalidate(inventoryItemsProvider);
+                      ref.invalidate(inventoryStatsProvider);
+                      ref.invalidate(inventoryAlertsProvider);
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      setState(() => isLoading = false);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Gagal: ${e.toString()}'),
+                        backgroundColor: AppColors.error,
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: isAdd ? AppColors.success : AppColors.error),
+                child: isLoading
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(isAdd ? 'Tambah' : 'Kurangi'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -441,8 +503,4 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 }
 
-class _InventoryItem {
-  final String name, category, brand;
-  final int stock, minStock, price;
-  const _InventoryItem(this.name, this.category, this.stock, this.minStock, this.brand, this.price);
-}
+// Replaced by InventoryItem model from real API

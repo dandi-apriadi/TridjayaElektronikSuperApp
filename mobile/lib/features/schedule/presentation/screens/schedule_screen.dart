@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/models/user_model.dart';
+import '../providers/schedule_provider.dart';
+import '../../models/schedule_models.dart' as backend_schedule;
 
 /// ============================================================
 /// 📅 EMPLOYEE SCHEDULE SCREEN
@@ -23,62 +24,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-  // Dummy schedule data
-  final Map<DateTime, List<ScheduleEvent>> _events = {
-    DateTime.now(): [
-      ScheduleEvent(
-        id: '1',
-        title: 'Kunjungan Prospek',
-        time: '08:00 - 12:00',
-        location: 'Area Bandung Selatan',
-        type: EventType.visit,
-        status: EventStatus.scheduled,
-      ),
-      ScheduleEvent(
-        id: '2',
-        title: 'Meeting Tim Sales',
-        time: '14:00 - 15:30',
-        location: 'Kantor Cabang',
-        type: EventType.meeting,
-        status: EventStatus.scheduled,
-      ),
-    ],
-    DateTime.now().add(const Duration(days: 1)): [
-      ScheduleEvent(
-        id: '3',
-        title: 'Follow Up Nasabah',
-        time: '09:00 - 11:00',
-        location: 'Via Telepon',
-        type: EventType.call,
-        status: EventStatus.scheduled,
-      ),
-      ScheduleEvent(
-        id: '4',
-        title: 'Pelatihan Produk',
-        time: '13:00 - 16:00',
-        location: 'Ruang Training',
-        type: EventType.training,
-        status: EventStatus.scheduled,
-      ),
-    ],
-    DateTime.now().subtract(const Duration(days: 1)): [
-      ScheduleEvent(
-        id: '5',
-        title: 'Kunjungan Prospek',
-        time: '08:00 - 12:00',
-        location: 'Area Cibaduyut',
-        type: EventType.visit,
-        status: EventStatus.completed,
-      ),
-    ],
-  };
-
-  List<ScheduleEvent> _getEventsForDay(DateTime day) {
-    return _events[DateTime(day.year, day.month, day.day)] ?? [];
-  }
-
   @override
   Widget build(BuildContext context) {
+    final scheduleAsync = ref.watch(myScheduleProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -101,82 +50,150 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Calendar
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              boxShadow: AppShadows.sm,
-            ),
-            child: TableCalendar(
-              firstDay: DateTime.now().subtract(const Duration(days: 365)),
-              lastDay: DateTime.now().add(const Duration(days: 365)),
-              focusedDay: _focusedDay,
-              calendarFormat: _calendarFormat,
-              selectedDayPredicate: (day) {
-                return isSameDay(_selectedDay, day);
-              },
-              onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  _selectedDay = selectedDay;
-                  _focusedDay = focusedDay;
-                });
-              },
-              onFormatChanged: (format) {
-                setState(() {
-                  _calendarFormat = format;
-                });
-              },
-              onPageChanged: (focusedDay) {
-                _focusedDay = focusedDay;
-              },
-              eventLoader: _getEventsForDay,
-              calendarStyle: CalendarStyle(
-                markersMaxCount: 3,
-                markerDecoration: BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
+      body: scheduleAsync.when(
+        data: (shifts) {
+          final eventsByDay = _groupEventsByDay(shifts);
+          return Column(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  boxShadow: AppShadows.sm,
                 ),
-                selectedDecoration: BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-                todayDecoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.3),
-                  shape: BoxShape.circle,
+                child: TableCalendar(
+                  firstDay: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDay: DateTime.now().add(const Duration(days: 365)),
+                  focusedDay: _focusedDay,
+                  calendarFormat: _calendarFormat,
+                  selectedDayPredicate: (day) {
+                    return isSameDay(_selectedDay, day);
+                  },
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _selectedDay = selectedDay;
+                      _focusedDay = focusedDay;
+                    });
+                  },
+                  onFormatChanged: (format) {
+                    setState(() {
+                      _calendarFormat = format;
+                    });
+                  },
+                  onPageChanged: (focusedDay) {
+                    _focusedDay = focusedDay;
+                  },
+                  eventLoader: (day) => _getEventsForDay(day, eventsByDay),
+                  calendarStyle: CalendarStyle(
+                    markersMaxCount: 3,
+                    markerDecoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    selectedDecoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    todayDecoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  headerStyle: HeaderStyle(
+                    formatButtonVisible: true,
+                    formatButtonDecoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    formatButtonTextStyle: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    titleCentered: true,
+                    titleTextStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
-              headerStyle: HeaderStyle(
-                formatButtonVisible: true,
-                formatButtonDecoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                formatButtonTextStyle: TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-                titleCentered: true,
-                titleTextStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+              Expanded(
+                child: _buildEventsList(eventsByDay),
               ),
-            ),
-          ),
-
-          // Events List
-          Expanded(
-            child: _buildEventsList(),
-          ),
-        ],
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(child: Text('Gagal memuat jadwal: $error')),
       ),
     );
   }
 
-  Widget _buildEventsList() {
-    final selectedEvents = _getEventsForDay(_selectedDay ?? _focusedDay);
+  Map<DateTime, List<ScheduleEvent>> _groupEventsByDay(List<backend_schedule.Shift> shifts) {
+    final grouped = <DateTime, List<ScheduleEvent>>{};
+
+    for (final shift in shifts) {
+      final startTime = DateTime.tryParse(shift.startTime);
+      final key = DateTime(
+        (startTime ?? DateTime.now()).year,
+        (startTime ?? DateTime.now()).month,
+        (startTime ?? DateTime.now()).day,
+      );
+      grouped.putIfAbsent(key, () => []);
+      grouped[key]!.add(_toScheduleEvent(shift));
+    }
+
+    return grouped;
+  }
+
+  List<ScheduleEvent> _getEventsForDay(DateTime day, Map<DateTime, List<ScheduleEvent>> eventsByDay) {
+    return eventsByDay[DateTime(day.year, day.month, day.day)] ?? [];
+  }
+
+  ScheduleEvent _toScheduleEvent(backend_schedule.Shift shift) {
+    final startTime = DateTime.tryParse(shift.startTime);
+    final endTime = DateTime.tryParse(shift.endTime);
+    final time = startTime != null && endTime != null
+        ? '${DateFormat('HH:mm').format(startTime)} - ${DateFormat('HH:mm').format(endTime)}'
+        : shift.startTime;
+
+    return ScheduleEvent(
+      id: shift.id,
+      title: shift.title,
+      time: time,
+      location: shift.location ?? '-',
+      type: _mapShiftType(shift.shiftType),
+      status: _mapShiftStatus(shift.status),
+    );
+  }
+
+  EventType _mapShiftType(String shiftType) {
+    switch (shiftType.toLowerCase()) {
+      case 'morning':
+        return EventType.meeting;
+      case 'afternoon':
+        return EventType.visit;
+      case 'night':
+        return EventType.call;
+      default:
+        return EventType.training;
+    }
+  }
+
+  EventStatus _mapShiftStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return EventStatus.completed;
+      case 'cancelled':
+        return EventStatus.cancelled;
+      case 'in_progress':
+        return EventStatus.inProgress;
+      default:
+        return EventStatus.scheduled;
+    }
+  }
+
+  Widget _buildEventsList(Map<DateTime, List<ScheduleEvent>> eventsByDay) {
+    final selectedEvents = _getEventsForDay(_selectedDay ?? _focusedDay, eventsByDay);
     final dateFormat = DateFormat('EEEE, dd MMMM yyyy', 'id_ID');
 
     return Container(

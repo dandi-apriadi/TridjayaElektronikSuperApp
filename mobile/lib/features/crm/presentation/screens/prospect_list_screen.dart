@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../models/crm_models.dart';
+import '../providers/crm_provider.dart';
 
 /// ============================================================
 /// 👥 PROSPECT LIST SCREEN - CRM
@@ -21,145 +23,10 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
   String _selectedFilter = 'all'; // all, hot, warm, cold, converted, lost
   String _selectedSort = 'newest'; // newest, name, followUp
 
-  // Dummy prospects data
-  final List<Map<String, dynamic>> _prospects = [
-    {
-      'id': '1',
-      'name': 'Budi Santoso',
-      'phone': '081234567890',
-      'email': 'budi@email.com',
-      'address': 'Jl. Sudirman No. 123, Bandung',
-      'status': 'hot',
-      'source': 'Referral',
-      'interest': 'TV 32 inch',
-      'budget': 3000000,
-      'notes': 'Berminat serius, mau visit showroom',
-      'lastContact': DateTime.now().subtract(const Duration(hours: 2)),
-      'nextFollowUp': DateTime.now().add(const Duration(days: 1)),
-      'createdAt': DateTime.now().subtract(const Duration(days: 3)),
-    },
-    {
-      'id': '2',
-      'name': 'Siti Aminah',
-      'phone': '082345678901',
-      'email': 'siti@email.com',
-      'address': 'Jl. Dago No. 45, Bandung',
-      'status': 'warm',
-      'source': 'Walk-in',
-      'interest': 'AKI Mobil',
-      'budget': 1500000,
-      'notes': 'Banding-banding harga dulu',
-      'lastContact': DateTime.now().subtract(const Duration(days: 2)),
-      'nextFollowUp': DateTime.now().add(const Duration(days: 3)),
-      'createdAt': DateTime.now().subtract(const Duration(days: 5)),
-    },
-    {
-      'id': '3',
-      'name': 'Ahmad Wijaya',
-      'phone': '083456789012',
-      'email': null,
-      'address': 'Komplek Cibaduyut Indah',
-      'status': 'cold',
-      'source': 'Facebook Ads',
-      'interest': 'HP Android',
-      'budget': 2000000,
-      'notes': 'Belum responsif',
-      'lastContact': DateTime.now().subtract(const Duration(days: 7)),
-      'nextFollowUp': DateTime.now().add(const Duration(days: 7)),
-      'createdAt': DateTime.now().subtract(const Duration(days: 14)),
-    },
-    {
-      'id': '4',
-      'name': 'Dewi Kurniawati',
-      'phone': '084567890123',
-      'email': 'dewi@company.com',
-      'address': 'Ruko Setiabudi',
-      'status': 'converted',
-      'source': 'Telemarketing',
-      'interest': 'TV + Soundbar',
-      'budget': 5000000,
-      'notes': 'Sudah closing, tunggu delivery',
-      'lastContact': DateTime.now().subtract(const Duration(days: 1)),
-      'nextFollowUp': null,
-      'createdAt': DateTime.now().subtract(const Duration(days: 10)),
-    },
-    {
-      'id': '5',
-      'name': 'Rudi Hartono',
-      'phone': '085678901234',
-      'email': null,
-      'address': 'Perumahan Buah Batu',
-      'status': 'lost',
-      'source': 'Referral',
-      'interest': 'Kulkas',
-      'budget': 4000000,
-      'notes': 'Pilih kompetitor karena harga',
-      'lastContact': DateTime.now().subtract(const Duration(days: 5)),
-      'nextFollowUp': null,
-      'createdAt': DateTime.now().subtract(const Duration(days: 20)),
-    },
-  ];
-
-  List<Map<String, dynamic>> get _filteredProspects {
-    var filtered = _prospects.where((p) {
-      // Search filter
-      if (_searchQuery.isNotEmpty) {
-        final query = _searchQuery.toLowerCase();
-        final name = p['name'].toString().toLowerCase();
-        final phone = p['phone'].toString().toLowerCase();
-        final interest = p['interest'].toString().toLowerCase();
-        if (!name.contains(query) &&
-            !phone.contains(query) &&
-            !interest.contains(query)) {
-          return false;
-        }
-      }
-
-      // Status filter
-      if (_selectedFilter != 'all' && p['status'] != _selectedFilter) {
-        return false;
-      }
-
-      return true;
-    }).toList();
-
-    // Sort
-    switch (_selectedSort) {
-      case 'newest':
-        filtered.sort((a, b) =>
-            (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime));
-        break;
-      case 'name':
-        filtered.sort((a, b) =>
-            (a['name'] as String).compareTo(b['name'] as String));
-        break;
-      case 'followUp':
-        filtered.sort((a, b) {
-          final aDate = a['nextFollowUp'] as DateTime?;
-          final bDate = b['nextFollowUp'] as DateTime?;
-          if (aDate == null) return 1;
-          if (bDate == null) return -1;
-          return aDate.compareTo(bDate);
-        });
-        break;
-    }
-
-    return filtered;
-  }
-
-  Map<String, int> get _statusCounts {
-    return {
-      'all': _prospects.length,
-      'hot': _prospects.where((p) => p['status'] == 'hot').length,
-      'warm': _prospects.where((p) => p['status'] == 'warm').length,
-      'cold': _prospects.where((p) => p['status'] == 'cold').length,
-      'converted': _prospects.where((p) => p['status'] == 'converted').length,
-      'lost': _prospects.where((p) => p['status'] == 'lost').length,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
+    final prospectsAsync = ref.watch(customersProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -181,30 +48,32 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Summary Cards
-          _buildSummaryCards(),
-
-          // Search Bar
-          _buildSearchBar(),
-
-          // Filter Chips
-          _buildFilterChips(),
-
-          // Prospects List
-          Expanded(
-            child: _filteredProspects.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredProspects.length,
-                    itemBuilder: (context, index) {
-                      return _buildProspectCard(_filteredProspects[index]);
-                    },
-                  ),
-          ),
-        ],
+      body: prospectsAsync.when(
+        data: (prospects) {
+          final filteredProspects = _filteredProspects(prospects);
+          return Column(
+            children: [
+              _buildSummaryCards(prospects),
+              _buildSearchBar(),
+              _buildFilterChips(prospects),
+              Expanded(
+                child: filteredProspects.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filteredProspects.length,
+                        itemBuilder: (context, index) {
+                          return _buildProspectCard(filteredProspects[index]);
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(
+          child: Text('Gagal memuat prospek: $error'),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/sales/prospects/add'),
@@ -215,8 +84,59 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
     );
   }
 
-  Widget _buildSummaryCards() {
-    final counts = _statusCounts;
+  List<CrmCustomer> _filteredProspects(List<CrmCustomer> prospects) {
+    final List<CrmCustomer> filtered = prospects.where((p) {
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toLowerCase();
+        final name = p.name.toLowerCase();
+        final phone = p.phone.toLowerCase();
+        final interest = (p.interest ?? '').toLowerCase();
+        if (!name.contains(query) && !phone.contains(query) && !interest.contains(query)) {
+          return false;
+        }
+      }
+
+      if (_selectedFilter != 'all' && p.status != _selectedFilter) {
+        return false;
+      }
+
+      return true;
+    }).toList();
+
+    switch (_selectedSort) {
+      case 'newest':
+        filtered.sort((a, b) => DateTime.parse(b.createdAt).compareTo(DateTime.parse(a.createdAt)));
+        break;
+      case 'name':
+        filtered.sort((a, b) => a.name.compareTo(b.name));
+        break;
+      case 'followUp':
+        filtered.sort((a, b) {
+          final aDate = a.nextFollowup != null ? DateTime.tryParse(a.nextFollowup!) : null;
+          final bDate = b.nextFollowup != null ? DateTime.tryParse(b.nextFollowup!) : null;
+          if (aDate == null) return 1;
+          if (bDate == null) return -1;
+          return aDate.compareTo(bDate);
+        });
+        break;
+    }
+
+    return filtered;
+  }
+
+  Map<String, int> _statusCounts(List<CrmCustomer> prospects) {
+    return {
+      'all': prospects.length,
+      'hot': prospects.where((p) => p.status == 'hot').length,
+      'warm': prospects.where((p) => p.status == 'warm').length,
+      'cold': prospects.where((p) => p.status == 'cold').length,
+      'converted': prospects.where((p) => p.status == 'converted').length,
+      'lost': prospects.where((p) => p.status == 'lost').length,
+    };
+  }
+
+  Widget _buildSummaryCards(List<CrmCustomer> prospects) {
+    final counts = _statusCounts(prospects);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -315,24 +235,25 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
     );
   }
 
-  Widget _buildFilterChips() {
+  Widget _buildFilterChips(List<CrmCustomer> prospects) {
+    final counts = _statusCounts(prospects);
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
-          _buildFilterChip('Semua', 'all', '${_statusCounts['all']}'),
+          _buildFilterChip('Semua', 'all', '${counts['all']}'),
           const SizedBox(width: 8),
-          _buildFilterChip('Hot Lead', 'hot', '${_statusCounts['hot']}'),
+          _buildFilterChip('Hot Lead', 'hot', '${counts['hot']}'),
           const SizedBox(width: 8),
-          _buildFilterChip('Warm', 'warm', '${_statusCounts['warm']}'),
+          _buildFilterChip('Warm', 'warm', '${counts['warm']}'),
           const SizedBox(width: 8),
-          _buildFilterChip('Cold', 'cold', '${_statusCounts['cold']}'),
+          _buildFilterChip('Cold', 'cold', '${counts['cold']}'),
           const SizedBox(width: 8),
-          _buildFilterChip('Closing', 'converted', '${_statusCounts['converted']}'),
+          _buildFilterChip('Closing', 'converted', '${counts['converted']}'),
           const SizedBox(width: 8),
-          _buildFilterChip('Lost', 'lost', '${_statusCounts['lost']}'),
+          _buildFilterChip('Lost', 'lost', '${counts['lost']}'),
         ],
       ),
     );
@@ -445,10 +366,10 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
     );
   }
 
-  Widget _buildProspectCard(Map<String, dynamic> prospect) {
-    final status = prospect['status'] as String;
-    final nextFollowUp = prospect['nextFollowUp'] as DateTime?;
-    final lastContact = prospect['lastContact'] as DateTime?;
+  Widget _buildProspectCard(CrmCustomer prospect) {
+    final status = prospect.status;
+    final nextFollowUp = prospect.nextFollowup != null ? DateTime.tryParse(prospect.nextFollowup!) : null;
+    final lastContact = prospect.lastInteraction != null ? DateTime.tryParse(prospect.lastInteraction!) : null;
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
 
     Color statusColor;
@@ -516,7 +437,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          prospect['name'],
+                          prospect.name,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -524,7 +445,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          prospect['interest'],
+                          prospect.interest ?? '-',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -564,13 +485,13 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                   Expanded(
                     child: _buildInfoItem(
                       icon: Icons.phone,
-                      label: prospect['phone'],
+                      label: prospect.phone,
                     ),
                   ),
                   Expanded(
                     child: _buildInfoItem(
                       icon: Icons.monetization_on,
-                      label: 'Rp ${NumberFormat('#,###').format(prospect['budget'])}',
+                      label: 'Rp ${NumberFormat('#,###').format(prospect.budget ?? 0)}',
                     ),
                   ),
                 ],
@@ -620,7 +541,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                 ),
 
               // Notes
-              if (prospect['notes'] != null && prospect['notes'].isNotEmpty)
+              if ((prospect.notes ?? '').isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Container(
@@ -635,7 +556,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            prospect['notes'],
+                            prospect.notes ?? '-',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
@@ -657,7 +578,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _quickCall(prospect['phone']),
+                        onPressed: () => _quickCall(prospect.phone),
                       icon: const Icon(Icons.phone, size: 16),
                       label: const Text('Telepon'),
                       style: OutlinedButton.styleFrom(
@@ -669,7 +590,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _quickWhatsApp(prospect['phone']),
+                        onPressed: () => _quickWhatsApp(prospect.phone),
                       icon: const Icon(Icons.chat, size: 16),
                       label: const Text('WhatsApp'),
                       style: OutlinedButton.styleFrom(
@@ -682,7 +603,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'edit') {
-                        context.push('/sales/prospects/edit/${prospect['id']}');
+                        context.push('/sales/prospects/edit/${prospect.id}');
                       } else if (value == 'status') {
                         _showChangeStatusDialog(prospect);
                       } else if (value == 'followup') {
@@ -778,7 +699,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
     }
   }
 
-  void _showProspectDetail(Map<String, dynamic> prospect) {
+  void _showProspectDetail(CrmCustomer prospect) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -823,7 +744,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            prospect['name'],
+                            prospect.name,
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
@@ -840,7 +761,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              prospect['source'],
+                              prospect.source ?? '-',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.primary,
@@ -860,12 +781,9 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                 _buildDetailSection(
                   title: 'Informasi Kontak',
                   items: [
-                    if (prospect['phone'] != null)
-                      _buildDetailItem(Icons.phone, prospect['phone']),
-                    if (prospect['email'] != null)
-                      _buildDetailItem(Icons.email, prospect['email']),
-                    if (prospect['address'] != null)
-                      _buildDetailItem(Icons.location_on, prospect['address']),
+                    _buildDetailItem(Icons.phone, prospect.phone),
+                    if (prospect.email != null) _buildDetailItem(Icons.email, prospect.email!),
+                    if (prospect.address != null) _buildDetailItem(Icons.location_on, prospect.address!),
                   ],
                 ),
 
@@ -873,20 +791,20 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                 _buildDetailSection(
                   title: 'Minat',
                   items: [
-                    _buildDetailItem(Icons.shopping_bag, prospect['interest']),
+                    _buildDetailItem(Icons.shopping_bag, prospect.interest ?? '-'),
                     _buildDetailItem(
                       Icons.monetization_on,
-                      'Budget: Rp ${NumberFormat('#,###').format(prospect['budget'])}',
+                      'Budget: Rp ${NumberFormat('#,###').format(prospect.budget ?? 0)}',
                     ),
                   ],
                 ),
 
                 // Notes
-                if (prospect['notes'] != null && prospect['notes'].isNotEmpty)
+                if ((prospect.notes ?? '').isNotEmpty)
                   _buildDetailSection(
                     title: 'Catatan',
                     items: [
-                      _buildDetailItem(Icons.notes, prospect['notes']),
+                      _buildDetailItem(Icons.notes, prospect.notes ?? '-'),
                     ],
                   ),
 
@@ -897,7 +815,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => _quickCall(prospect['phone']),
+                        onPressed: () => _quickCall(prospect.phone),
                         icon: const Icon(Icons.phone),
                         label: const Text('Telepon'),
                         style: ElevatedButton.styleFrom(
@@ -910,7 +828,7 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => _quickWhatsApp(prospect['phone']),
+                        onPressed: () => _quickWhatsApp(prospect.phone),
                         icon: const Icon(Icons.chat),
                         label: const Text('WhatsApp'),
                         style: ElevatedButton.styleFrom(
@@ -1002,21 +920,25 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
     // Show sort options
   }
 
-  void _showChangeStatusDialog(Map<String, dynamic> prospect) {
-    // Show status change dialog
+  void _showChangeStatusDialog(CrmCustomer prospect) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Ubah status ${prospect.name} belum dihubungkan ke aksi mutasi')),
+    );
   }
 
-  void _showAddFollowUpDialog(Map<String, dynamic> prospect) {
-    // Show follow up scheduling dialog
+  void _showAddFollowUpDialog(CrmCustomer prospect) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Follow-up ${prospect.name} siap dihubungkan ke mutasi backend')),
+    );
   }
 
-  void _showDeleteConfirmation(Map<String, dynamic> prospect) {
+  void _showDeleteConfirmation(CrmCustomer prospect) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Hapus Prospek?'),
         content: Text(
-          'Apakah Anda yakin ingin menghapus ${prospect['name']} dari daftar prospek?',
+          'Apakah Anda yakin ingin menghapus ${prospect.name} dari daftar prospek?',
         ),
         actions: [
           TextButton(
@@ -1025,9 +947,6 @@ class _ProspectListScreenState extends ConsumerState<ProspectListScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              setState(() {
-                _prospects.removeWhere((p) => p['id'] == prospect['id']);
-              });
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(

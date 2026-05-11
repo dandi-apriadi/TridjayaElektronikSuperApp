@@ -11,6 +11,8 @@ enum UserRole {
   owner,
   @JsonValue('Kepala_Cabang')
   kepalaCabang,
+  @JsonValue('PIC_Pelaporan')
+  picPelaporan,
   @JsonValue('Admin')
   admin,
   @JsonValue('Sales')
@@ -28,6 +30,8 @@ extension UserRoleExtension on UserRole {
         return 'Owner';
       case UserRole.kepalaCabang:
         return 'Kepala Cabang';
+      case UserRole.picPelaporan:
+        return 'PIC Pelaporan';
       case UserRole.admin:
         return 'Admin';
       case UserRole.sales:
@@ -40,6 +44,7 @@ extension UserRoleExtension on UserRole {
   bool get canAccessAllBranches => this == UserRole.superAdmin || this == UserRole.owner;
   bool get isFieldWorker => this == UserRole.driver || this == UserRole.sales;
   bool get isSuperAdmin => this == UserRole.superAdmin;
+  bool get canReviewAllDivisions => this == UserRole.picPelaporan || this == UserRole.owner || this == UserRole.superAdmin;
   bool get canManageAllUsers => this == UserRole.superAdmin;
   bool get canEditAnyData => this == UserRole.superAdmin;
 }
